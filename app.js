@@ -10,13 +10,14 @@ function verificarAcesso() {
     if (senhaDigitada !== SENHA_ACESSO) {
         alert("Acesso negado!");
         document.body.innerHTML = `
-            <div style="background:#1a1a1a; color:white; height:100vh; display:flex; align-items:center; justify-content:center; font-family:sans-serif;">
+            <div style="background:#121212; color:white; height:100vh; display:flex; align-items:center; justify-content:center; font-family:sans-serif;">
                 <h1>🔒 Acesso Bloqueado. Atualize a página e digite a senha correta.</h1>
             </div>`;
         throw new Error("Acesso interrompido por senha incorreta");
     }
 }
 
+// Tranca de segurança
 verificarAcesso();
 
 // ----------------------------------------------------
@@ -45,6 +46,9 @@ function mostrarNotificacao(mensagem, tipo = 'sucesso') {
     }, 3500);
 }
 
+// ----------------------------------------------------
+// AUXILIARES DE FORMATAÇÃO
+// ----------------------------------------------------
 function limparNumero(valor) {
     return parseFloat(valor?.toString().replace(',', '.')) || 0;
 }
@@ -69,6 +73,7 @@ async function carregarDados() {
         const dados = await resposta.json();
         
         produtosGlobais = dados.produtos;
+        // Inverte para as vendas mais recentes aparecerem no topo
         vendasGlobais = dados.vendas.reverse(); 
 
         renderizarProdutos();
@@ -93,8 +98,8 @@ function renderizarProdutos() {
         potencialFaturamento += (preco * estoqueAtual);
 
         let margem = preco > 0 ? ((preco - custo) / preco) * 100 : 0;
-        let statusHtml = estoqueAtual === 0 ? '<span class="badge badge-danger">🔴 Esgotado</span>' : 
-                         (estoqueAtual < 3 ? '<span class="badge badge-warning">🟡 Acabando</span>' : '<span class="badge badge-success">🟢 Normal</span>');
+        let statusHtml = estoqueAtual === 0 ? '<span class="badge badge-danger">🔴</span>' : 
+                         (estoqueAtual < 3 ? '<span class="badge badge-warning">🟡</span>' : '<span class="badge badge-success">🟢</span>');
 
         tabela.innerHTML += `
             <tr>
@@ -106,7 +111,7 @@ function renderizarProdutos() {
                 <td>${formatarMoeda(preco)}</td>
                 <td><span class="badge margem-badge">${margem.toFixed(1).replace('.', ',')}%</span></td>
                 <td style="font-size: 16px;"><strong>${estoqueAtual}</strong></td>
-                <td>${statusHtml}</td>
+                <td style="text-align:center">${statusHtml}</td>
                 <td>
                     <button class="btn-acao btn-edit" onclick="abrirModalEdicao(${produto.id})">Editar</button>
                     <button class="btn-acao btn-delete" onclick="excluirProduto(${produto.id})">❌</button>
@@ -149,13 +154,14 @@ function renderizarVendasEDashboard() {
         if (dataVendaIso === hoje) { qtdVendasHoje += qtd; lucroHoje += lucroVal; }
         if (dataVendaIso.startsWith(mesAtual)) { lucroMes += lucroVal; }
 
+        // Mudei para salvar tudo perfeito na tabela do Passo 1.3
         tabelaHistorico.innerHTML += `
             <tr>
                 <td>${formatarDataBR(venda.Data)}</td>
                 <td><strong>${venda.cliente || "-"}</strong></td>
                 <td>${venda.Produtos && venda.Produtos.length > 0 ? venda.Produtos[0].value : "Excluído"}</td>
                 <td><strong>${qtd}</strong></td>
-                <td>${formatarMoeda(limparNumero(venda.Faturamento))}</td>
+                <td style="color: var(--text-secondary);">${venda.Metodo_Pagamento || "-"}</td> <td>${formatarMoeda(limparNumero(venda.Faturamento))}</td>
                 <td class="lucro-verde">${formatarMoeda(lucroVal)}</td>
                 <td>
                     <button class="btn-acao btn-edit" onclick="abrirModalEdicaoVenda(${venda.id})">Editar</button>
@@ -200,6 +206,7 @@ function atualizarResumoVenda() {
     const p = produtosGlobais.find(x => x.id == pID);
     if (!p) return;
 
+    // Matemática Financeira
     const faturamentoBruto = (limparNumero(p.Preco_Venda) * qtd);
     const faturamentoComDesconto = faturamentoBruto - desc;
     const valorTaxa = faturamentoComDesconto * (taxaPerc / 100);
@@ -210,8 +217,8 @@ function atualizarResumoVenda() {
     if(display) {
         display.style.display = "block";
         display.innerHTML = `
-            <span style="font-size: 13px; color: #aaa;">Fat. Real: ${formatarMoeda(faturamentoComDesconto)} | Taxa: -${formatarMoeda(valorTaxa)}</span><br>
-            <span style="font-size: 16px;">Lucro Líquido Previsto: <strong class="lucro-verde">${formatarMoeda(lucroLiquido)}</strong></span>
+            <span style="font-size: 13px; color: #888;">Faturamento Real: ${formatarMoeda(faturamentoComDesconto)} | Taxa R$: -${formatarMoeda(valorTaxa)}</span><br>
+            <span style="font-size: 16px; color:#fff;">Lucro Líquido Previsto: <strong class="lucro-verde">${formatarMoeda(lucroLiquido)}</strong></span>
         `;
     }
 }
@@ -262,6 +269,7 @@ async function registrarVenda() {
         if (res.ok) {
             mostrarNotificacao("Venda registrada com sucesso!");
             
+            // Limpa os inputs
             document.getElementById("quantidadeVenda").value = "";
             document.getElementById("descontoVenda").value = "";
             document.getElementById("taxaVenda").value = "";
@@ -359,6 +367,11 @@ function abrirModalEdicao(id) {
     document.getElementById("editCusto").value = limparNumero(p.Custo);
     document.getElementById("editPreco").value = limparNumero(p.Preco_Venda);
     document.getElementById("editEstoque").value = p.Estoque;
+    // Novos campos da UI 1.3
+    document.getElementById("editModelo").value = p.Modelo || "";
+    document.getElementById("editCor").value = p.Cor || "";
+    document.getElementById("editTamanho").value = p.Tamanho || "";
+
     document.getElementById("modalEdicao").classList.add("ativo");
 }
 
@@ -372,12 +385,15 @@ async function salvarEdicao() {
     const Custo = parseFloat(document.getElementById("editCusto").value);
     const Preco_Venda = parseFloat(document.getElementById("editPreco").value);
     const Estoque = parseInt(document.getElementById("editEstoque").value);
+    const Modelo = document.getElementById("editModelo").value;
+    const Cor = document.getElementById("editCor").value;
+    const Tamanho = document.getElementById("editTamanho").value;
 
     try {
         const res = await fetch('/api/editar-produto', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, Produto, Custo, Preco_Venda, Estoque })
+            body: JSON.stringify({ id, Produto, Custo, Preco_Venda, Estoque, Modelo, Cor, Tamanho })
         });
         if(res.ok){
             mostrarNotificacao("Alterações salvas!");
@@ -388,7 +404,7 @@ async function salvarEdicao() {
 }
 
 // ----------------------------------------------------
-// EDIÇÃO DE VENDAS (PASSO 4)
+// EDIÇÃO DE VENDAS (PASSO 4 COMPLETO)
 // ----------------------------------------------------
 function abrirModalEdicaoVenda(id) {
     const venda = vendasGlobais.find(v => v.id === id);
@@ -398,7 +414,7 @@ function abrirModalEdicaoVenda(id) {
     document.getElementById("editVendaProdutoID").value = venda.Produtos[0].id;
     document.getElementById("editVendaQtdAntiga").value = venda.Quantidade;
     
-    // Recupera Custo e Preco para recalcular
+    // Recupera Custo e Preco unitários originais para recalcular
     document.getElementById("editVendaPreco").value = limparNumero(venda.Preco_Venda);
     document.getElementById("editVendaCusto").value = limparNumero(venda.Custo_Produto);
 
@@ -419,10 +435,11 @@ function abrirModalEdicaoVenda(id) {
     // Seleciona o Metodo, se não tiver assume Dinheiro
     document.getElementById("editVendaMetodo").value = venda.Metodo_Pagamento || "Dinheiro";
     
-    // Descobre a % da taxa (Taxa_Maquininha em R$ / (Faturamento) * 100)
-    let faturamentoComDesconto = limparNumero(venda.Faturamento);
+    // Descobre a % da taxa (Taxa_Maquininha em R$ / (Faturamento Real) * 100)
+    let faturamentoReal = limparNumero(venda.Faturamento);
     let taxaReais = limparNumero(venda.Taxa_Maquininha);
-    let taxaPerc = faturamentoComDesconto > 0 ? (taxaReais / faturamentoComDesconto) * 100 : 0;
+    // Se digitou R$ 200 de faturamento e R$ 4 de taxa -> (4 / 200) * 100 = 2%
+    let taxaPerc = faturamentoReal > 0 ? (taxaReais / faturamentoReal) * 100 : 0;
     
     document.getElementById("editVendaTaxa").value = taxaPerc.toFixed(2);
 
@@ -451,12 +468,10 @@ async function salvarEdicaoVenda() {
 
     if (!novaQtd || novaQtd <= 0 || !novaData) return mostrarNotificacao("Preencha Quantidade e Data corretamente.", "aviso");
 
-    // Lógica de Devolução de Estoque
-    // Se vendeu 3 e agora editou para 1 -> qtdAntiga (3) - novaQtd (1) = Devolve +2
-    // Se vendeu 1 e editou para 3 -> qtdAntiga (1) - novaQtd (3) = Retira -2
+    // Lógica atômica de Devolução de Estoque (Calculado na API)
     const diferencaEstoque = qtdAntiga - novaQtd;
 
-    // Recalcula o Financeiro
+    // Recalcula o Financeiro completo
     const faturamentoBruto = preco * novaQtd;
     const faturamentoComDesconto = faturamentoBruto - desconto;
     const valorTaxa = faturamentoComDesconto * (taxaPerc / 100);
@@ -474,8 +489,8 @@ async function salvarEdicaoVenda() {
             Desconto: desconto,
             Metodo_Pagamento: metodo,
             Taxa_Maquininha: valorTaxa,
-            Faturamento: faturamentoComDesconto,
-            Lucro_Venda: lucroReal
+            Faturamento: faturamentoComDesconto, // Faturamento Real
+            Lucro_Venda: lucroReal // Lucro Líquido
         }
     };
 
@@ -490,8 +505,11 @@ async function salvarEdicaoVenda() {
             mostrarNotificacao("Venda atualizada com sucesso!");
             fecharModalVenda();
             carregarDados();
+        } else {
+             const err = await res.json();
+             mostrarNotificacao("Erro: " + (err.error || "na API"), "erro");
         }
-    } catch (e) { mostrarNotificacao("Erro ao salvar edição.", "erro"); }
+    } catch (e) { mostrarNotificacao("Erro na comunicação com o servidor.", "erro"); }
 }
 
 // Inicialização Final
