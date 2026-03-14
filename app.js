@@ -2,7 +2,7 @@
 // SEGURANÇA E CONFIGURAÇÕES INICIAIS
 // ----------------------------------------------------
 const SENHA_ACESSO = "urbans123"; // Defina a senha que você dirá ao seu irmão
-const API_TOKEN = "SEU_NOVO_TOKEN_AQUI"; 
+const API_TOKEN = "T6mZrzUt6vB619pD6Qw0hB2D2nU5oOcR"; 
 const TABLE_PRODUTOS = 884394;
 const TABLE_VENDAS = 884420;
 
