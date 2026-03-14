@@ -17,10 +17,10 @@ export default async function handler(req, res) {
         const vendas = await resVend.json();
 
         return res.status(200).json({
-            produtos: produtos.results,
-            vendas: vendas.results
+            produtos: produtos.results || [],
+            vendas: vendas.results || []
         });
     } catch (error) {
-        return res.status(500).json({ error: "Falha na conexão segura com o banco." });
+        return res.status(500).json({ error: "Erro ao acessar o banco de dados via API." });
     }
 }

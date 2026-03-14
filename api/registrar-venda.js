@@ -15,7 +15,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({ Estoque: novoEstoque })
         });
 
-        // 2. Registra Venda (Já com a data corrigida pelo servidor)
+        // 2. Registra Venda com data segura do servidor
         const dataVenda = new Date().toLocaleDateString('sv-SE');
         
         const response = await fetch(`https://api.baserow.io/api/database/rows/table/${TABLE_VENDAS}/?user_field_names=true`, {
@@ -36,6 +36,6 @@ export default async function handler(req, res) {
         const resultado = await response.json();
         return res.status(200).json(resultado);
     } catch (error) {
-        return res.status(500).json({ error: "Erro ao processar venda no servidor." });
+        return res.status(500).json({ error: "Erro ao processar a venda no servidor." });
     }
 }
