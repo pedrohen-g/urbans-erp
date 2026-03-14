@@ -4,20 +4,23 @@ export default async function handler(req, res) {
     const API_TOKEN = process.env.BASEROW_TOKEN;
     const TABLE_PRODUTOS = 884394;
     const TABLE_VENDAS = 884420;
-
-    // Agora recebemos o metodoPagamento e os novos dados financeiros
     const { produtoID, cliente, quantidade, novoEstoque, metodoPagamento, financeiro } = req.body;
 
     try {
         // 1. Atualiza Estoque
-        await fetch(`https://api.baserow.io/api/database/rows/table/${TABLE_PRODUTOS}/${produtoID}/?user_field_names=true`, {
+        const resProd = await fetch(`https://api.baserow.io/api/database/rows/table/${TABLE_PRODUTOS}/${produtoID}/?user_field_names=true`, {
             method: "PATCH",
             headers: { Authorization: `Token ${API_TOKEN}`, "Content-Type": "application/json" },
             body: JSON.stringify({ Estoque: novoEstoque })
         });
+        
+        if (!resProd.ok) {
+            const errProd = await resProd.json();
+            return res.status(400).json({ error: "Erro no Baserow ao baixar estoque", details: errProd });
+        }
 
-        // 2. Registra Venda com as novas colunas
-        const dataVenda = new Date().toLocaleDateString('sv-SE');
+        // 2. Registra Venda
+        const dataVenda = new Date().toLocaleDateString('en-CA'); // Padrão seguro YYYY-MM-DD
         
         const response = await fetch(`https://api.baserow.io/api/database/rows/table/${TABLE_VENDAS}/?user_field_names=true`, {
             method: "POST",
@@ -26,20 +29,25 @@ export default async function handler(req, res) {
                 Produtos: [parseInt(produtoID)],
                 Quantidade: quantidade,
                 Preco_Venda: financeiro.preco,
-                Faturamento: financeiro.faturamento, // Faturamento real (com desconto)
+                Faturamento: financeiro.faturamento,
                 Custo_Produto: financeiro.custo,
-                Lucro_Venda: financeiro.lucro,       // Lucro Líquido
-                Desconto: financeiro.desconto,       // NOVA COLUNA
-                Taxa_Maquininha: financeiro.taxa_maquininha, // NOVA COLUNA
-                Metodo_Pagamento: metodoPagamento,   // NOVA COLUNA
+                Lucro_Venda: financeiro.lucro,
+                Desconto: financeiro.desconto,
+                Taxa_Maquininha: financeiro.taxa_maquininha,
+                Metodo_Pagamento: metodoPagamento,
                 Data: dataVenda,
                 cliente: cliente
             })
         });
 
+        if (!response.ok) {
+            const errVenda = await response.json();
+            return res.status(400).json({ error: "Erro no Baserow ao salvar a venda", details: errVenda });
+        }
+
         const resultado = await response.json();
         return res.status(200).json(resultado);
     } catch (error) {
-        return res.status(500).json({ error: "Erro ao processar a venda no servidor." });
+        return res.status(500).json({ error: "Erro interno no servidor da Vercel." });
     }
 }

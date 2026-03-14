@@ -39,7 +39,7 @@ function mostrarNotificacao(mensagem, tipo = 'sucesso') {
     setTimeout(() => {
         toast.classList.add('esconder');
         setTimeout(() => toast.remove(), 300);
-    }, 3500);
+    }, 4500); // Deixei o erro visível por mais tempo
 }
 
 function limparNumero(valor) { return parseFloat(valor?.toString().replace(',', '.')) || 0; }
@@ -81,7 +81,6 @@ function renderizarProdutos() {
 
         let margem = preco > 0 ? ((preco - custo) / preco) * 100 : 0;
         
-        // STATUS RESTAURADO COM TEXTO PARA O TEMA DARK
         let statusHtml = estoqueAtual === 0 ? '<span class="badge badge-danger">🔴 Esgotado</span>' : 
                          (estoqueAtual < 3 ? '<span class="badge badge-warning">🟡 Acabando</span>' : '<span class="badge badge-success">🟢 Normal</span>');
 
@@ -118,7 +117,7 @@ function renderizarProdutos() {
 }
 
 function renderizarVendasEDashboard() {
-    const hoje = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const hoje = new Date().toLocaleDateString('en-CA'); 
     const mesAtual = hoje.substring(0, 7); 
 
     let qtdVendasHoje = 0, lucroHoje = 0, lucroMes = 0;
@@ -138,7 +137,6 @@ function renderizarVendasEDashboard() {
         if (dataVendaIso === hoje) { qtdVendasHoje += qtd; lucroHoje += lucroVal; }
         if (dataVendaIso.startsWith(mesAtual)) { lucroMes += lucroVal; }
 
-        // RESOLVIDO: O [object Object] agora pega corretamente a string interna (.value)
         let metodoTxt = "-";
         if (venda.Metodo_Pagamento) {
             metodoTxt = venda.Metodo_Pagamento.value ? venda.Metodo_Pagamento.value : venda.Metodo_Pagamento;
@@ -252,6 +250,7 @@ async function registrarVenda() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        
         if (res.ok) {
             mostrarNotificacao("Venda registrada com sucesso!");
             document.getElementById("quantidadeVenda").value = "";
@@ -260,12 +259,17 @@ async function registrarVenda() {
             document.getElementById("clienteVenda").value = "";
             document.getElementById("resumoVendaDisplay").style.display = "none";
             carregarDados();
+        } else {
+            // SE O BASEROW RECUSAR, AGORA ELE AVISA AQUI!
+            const errData = await res.json();
+            console.error(errData);
+            mostrarNotificacao("Erro do Banco de Dados. Verifique se as opções de pagamento batem com o Baserow.", "erro");
         }
-    } catch (e) { mostrarNotificacao("Erro ao registrar venda.", "erro"); }
+    } catch (e) { mostrarNotificacao("Erro de comunicação ao registrar venda.", "erro"); }
 }
 
 // ----------------------------------------------------
-// AÇÕES DE CRUD (ESTORNO, ENTRADA, ETC)
+// AÇÕES DE CRUD
 // ----------------------------------------------------
 async function excluirVenda(id) {
     if (!confirm("Deseja estornar esta venda?")) return;
@@ -355,7 +359,7 @@ async function salvarEdicao() {
 }
 
 // ----------------------------------------------------
-// EDIÇÃO DE VENDAS (AGORA 100% FUNCIONAL)
+// EDIÇÃO DE VENDAS
 // ----------------------------------------------------
 function abrirModalEdicaoVenda(id) {
     const venda = vendasGlobais.find(v => v.id === id);
@@ -371,7 +375,6 @@ function abrirModalEdicaoVenda(id) {
     document.getElementById("editVendaProdutoNome").value = venda.Produtos[0].value;
     document.getElementById("editVendaCliente").value = venda.cliente || "";
     
-    // Tratamento Robusto de Data (Isso estava travando o botão de Salvar!)
     let dataIso = "";
     if (venda.Data) {
         if (venda.Data.includes('/')) {
@@ -388,7 +391,6 @@ function abrirModalEdicaoVenda(id) {
     document.getElementById("editVendaQuantidade").value = venda.Quantidade;
     document.getElementById("editVendaDesconto").value = limparNumero(venda.Desconto) || 0;
     
-    // Tratamento Robusto do Objeto do Método
     let metodoTxt = "Dinheiro";
     if (venda.Metodo_Pagamento) {
         metodoTxt = venda.Metodo_Pagamento.value ? venda.Metodo_Pagamento.value : venda.Metodo_Pagamento;
@@ -421,7 +423,6 @@ async function salvarEdicaoVenda() {
     const metodo = document.getElementById("editVendaMetodo").value;
     const taxaPerc = parseFloat(document.getElementById("editVendaTaxa").value) || 0;
 
-    // Se o botão não estiver funcionando, agora o aviso VAI aparecer em cima do modal!
     if (!novaQtd || novaQtd <= 0 || !novaData) return mostrarNotificacao("Preencha a Quantidade e a Data corretamente.", "aviso");
 
     const diferencaEstoque = qtdAntiga - novaQtd;
@@ -440,7 +441,7 @@ async function salvarEdicaoVenda() {
             cliente: novoCliente,
             Data: novaData,
             Desconto: desconto,
-            Metodo_Pagamento: metodo, // Agora enviamos só a string correta
+            Metodo_Pagamento: metodo,
             Taxa_Maquininha: valorTaxa,
             Faturamento: faturamentoComDesconto,
             Lucro_Venda: lucroReal
@@ -459,7 +460,10 @@ async function salvarEdicaoVenda() {
             fecharModalVenda();
             carregarDados();
         } else {
-             mostrarNotificacao("Erro do Servidor ao editar venda.", "erro");
+            // SE O BASEROW RECUSAR, AGORA ELE AVISA AQUI TAMBÉM!
+            const errData = await res.json();
+            console.error(errData);
+            mostrarNotificacao("Erro do Banco: O Baserow rejeitou a edição da Venda.", "erro");
         }
     } catch (e) { mostrarNotificacao("Erro na comunicação com o servidor.", "erro"); }
 }
