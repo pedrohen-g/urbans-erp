@@ -17,7 +17,6 @@ function verificarAcesso() {
     }
 }
 
-// Tranca de segurança
 verificarAcesso();
 
 // ----------------------------------------------------
@@ -46,9 +45,6 @@ function mostrarNotificacao(mensagem, tipo = 'sucesso') {
     }, 3500);
 }
 
-// ----------------------------------------------------
-// AUXILIARES DE FORMATAÇÃO
-// ----------------------------------------------------
 function limparNumero(valor) {
     return parseFloat(valor?.toString().replace(',', '.')) || 0;
 }
@@ -73,7 +69,6 @@ async function carregarDados() {
         const dados = await resposta.json();
         
         produtosGlobais = dados.produtos;
-        // Inverte para as vendas mais recentes aparecerem no topo
         vendasGlobais = dados.vendas.reverse(); 
 
         renderizarProdutos();
@@ -187,30 +182,73 @@ function atualizarSelects() {
 }
 
 // ----------------------------------------------------
-// AÇÕES DE REGISTRO, EDIÇÃO E EXCLUSÃO (VIA API)
+// CÁLCULO EM TEMPO REAL E REGISTRO DE VENDA
 // ----------------------------------------------------
+function atualizarResumoVenda() {
+    const pID = document.getElementById("produtoVenda").value;
+    const qtd = parseInt(document.getElementById("quantidadeVenda").value) || 0;
+    const desc = parseFloat(document.getElementById("descontoVenda").value) || 0;
+    const taxaPerc = parseFloat(document.getElementById("taxaVenda").value) || 0;
+    const display = document.getElementById("resumoVendaDisplay");
 
-// 1. REGISTRAR VENDA
+    if (!pID || qtd <= 0) {
+        if(display) display.style.display = "none";
+        return;
+    }
+
+    const p = produtosGlobais.find(x => x.id == pID);
+    if (!p) return;
+
+    // Matemática Financeira
+    const faturamentoBruto = (limparNumero(p.Preco_Venda) * qtd);
+    const faturamentoComDesconto = faturamentoBruto - desc;
+    const valorTaxa = faturamentoComDesconto * (taxaPerc / 100);
+    const custoTotal = limparNumero(p.Custo) * qtd;
+    
+    const lucroLiquido = faturamentoComDesconto - valorTaxa - custoTotal;
+
+    if(display) {
+        display.style.display = "block";
+        display.innerHTML = `
+            <span style="font-size: 13px; color: #aaa;">Fat. Bruto: ${formatarMoeda(faturamentoBruto)} | Taxa: -${formatarMoeda(valorTaxa)}</span><br>
+            <span style="font-size: 16px;">Lucro Líquido Previsto: <strong class="lucro-verde">${formatarMoeda(lucroLiquido)}</strong></span>
+        `;
+    }
+}
+
 async function registrarVenda() {
     const pID = document.getElementById("produtoVenda").value;
     const qtd = parseInt(document.getElementById("quantidadeVenda").value);
     const cli = document.getElementById("clienteVenda").value;
+    
+    const desc = parseFloat(document.getElementById("descontoVenda").value) || 0;
+    const taxaPerc = parseFloat(document.getElementById("taxaVenda").value) || 0;
+    const metodo = document.getElementById("metodoPagamento").value;
 
     if (!pID || !qtd || qtd <= 0) return mostrarNotificacao("Dados incompletos", "aviso");
 
     const p = produtosGlobais.find(x => x.id == pID);
     if (parseInt(p.Estoque) < qtd) return mostrarNotificacao("Estoque insuficiente", "erro");
 
+    const faturamentoBruto = (limparNumero(p.Preco_Venda) * qtd);
+    const faturamentoComDesconto = faturamentoBruto - desc;
+    const valorTaxa = faturamentoComDesconto * (taxaPerc / 100);
+    const custoTotal = limparNumero(p.Custo) * qtd;
+    const lucroReal = faturamentoComDesconto - valorTaxa - custoTotal;
+
     const payload = {
         produtoID: pID,
         cliente: cli,
         quantidade: qtd,
         novoEstoque: parseInt(p.Estoque) - qtd,
+        metodoPagamento: metodo,
         financeiro: {
             preco: limparNumero(p.Preco_Venda),
             custo: limparNumero(p.Custo),
-            faturamento: limparNumero(p.Preco_Venda) * qtd,
-            lucro: (limparNumero(p.Preco_Venda) - limparNumero(p.Custo)) * qtd
+            desconto: desc,
+            taxa_maquininha: valorTaxa,
+            faturamento: faturamentoComDesconto,
+            lucro: lucroReal
         }
     };
 
@@ -220,14 +258,25 @@ async function registrarVenda() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+
         if (res.ok) {
             mostrarNotificacao("Venda registrada com sucesso!");
+            
+            // Limpa os inputs
+            document.getElementById("quantidadeVenda").value = "";
+            document.getElementById("descontoVenda").value = "";
+            document.getElementById("taxaVenda").value = "";
+            document.getElementById("clienteVenda").value = "";
+            document.getElementById("resumoVendaDisplay").style.display = "none";
+            
             carregarDados();
         }
     } catch (e) { mostrarNotificacao("Erro ao registrar venda.", "erro"); }
 }
 
-// 2. ESTORNAR VENDA
+// ----------------------------------------------------
+// OUTRAS AÇÕES (ESTORNO, ENTRADA E CRUD PRODUTOS)
+// ----------------------------------------------------
 async function excluirVenda(id) {
     if (!confirm("Deseja estornar esta venda? O produto voltará ao estoque.")) return;
     const venda = vendasGlobais.find(v => v.id === id);
@@ -247,12 +296,10 @@ async function excluirVenda(id) {
     } catch (error) { mostrarNotificacao("Erro ao estornar venda.", "erro"); }
 }
 
-// 3. ENTRADA DE ESTOQUE
 async function entradaEstoque() {
     const pID = document.getElementById("produtoEntrada").value;
     const qtd = parseInt(document.getElementById("quantidadeEntrada").value);
     if (!pID || !qtd || qtd <= 0) return mostrarNotificacao("Preencha os dados corretamente.", "aviso");
-    
     const p = produtosGlobais.find(x => x.id == pID);
     
     try {
@@ -268,7 +315,6 @@ async function entradaEstoque() {
     } catch(e) { mostrarNotificacao("Erro ao atualizar estoque", "erro"); }
 }
 
-// 4. CADASTRAR PRODUTO NOVO
 async function cadastrarProduto() {
     const Produto = document.getElementById("cadProduto").value;
     const Modelo = document.getElementById("cadModelo").value;
@@ -293,7 +339,6 @@ async function cadastrarProduto() {
     } catch(e) { mostrarNotificacao("Erro ao cadastrar", "erro"); }
 }
 
-// 5. EXCLUIR PRODUTO DO BANCO
 async function excluirProduto(id) {
     if (!confirm("Tem certeza que deseja apagar este modelo do sistema?")) return;
     try {
@@ -305,7 +350,6 @@ async function excluirProduto(id) {
     } catch (e) { mostrarNotificacao("Erro ao excluir", "erro"); }
 }
 
-// 6. MODAL E EDIÇÃO DE PRODUTO
 function abrirModalEdicao(id) {
     const p = produtosGlobais.find(x => x.id === id);
     document.getElementById("editID").value = p.id;

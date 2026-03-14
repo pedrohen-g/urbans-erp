@@ -39,9 +39,28 @@
                 
                 <div class="card">
                     <h2>Registrar Venda</h2>
-                    <select id="produtoVenda"><option value="">Carregando produtos...</option></select>
+                    <select id="produtoVenda" onchange="atualizarResumoVenda()">
+                        <option value="">Carregando produtos...</option>
+                    </select>
                     <input id="clienteVenda" type="text" placeholder="Nome do Cliente (Opcional)">
-                    <input id="quantidadeVenda" type="number" placeholder="Quantidade" min="1">
+                    <input id="quantidadeVenda" type="number" placeholder="Quantidade" min="1" oninput="atualizarResumoVenda()">
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <input type="number" id="descontoVenda" placeholder="Desconto R$" oninput="atualizarResumoVenda()" style="flex: 1;" min="0" step="0.01">
+                        
+                        <select id="metodoPagamento" style="flex: 1;">
+                            <option value="Pix">Pix</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Débito">Cartão de Débito</option>
+                            <option value="Crédito">Cartão de Crédito</option>
+                        </select>
+                        
+                        <input type="number" id="taxaVenda" placeholder="Taxa Máquina %" oninput="atualizarResumoVenda()" style="flex: 1;" min="0" step="0.01">
+                    </div>
+
+                    <div id="resumoVendaDisplay" style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border: 1px dashed #ccc; border-radius: 5px; text-align: center; display: none;">
+                        </div>
+
                     <button class="btn-success" onclick="registrarVenda()">Confirmar Venda</button>
                 </div>
 
@@ -80,7 +99,7 @@
                             <span class="badge badge-warning">🟡 Acabando (1-2)</span>
                             <span class="badge badge-danger">🔴 Esgotado (0)</span>
                         </div>
-                        <button class="btn-secondary" onclick="carregarProdutos()">Atualizar Lista</button>
+                        <button class="btn-secondary" onclick="carregarDados()">Atualizar Lista</button>
                     </div>
                 </div>
                 
@@ -113,7 +132,7 @@
             <section class="estoque-section">
                 <div class="estoque-header">
                     <h2>Histórico Completo de Vendas</h2>
-                    <button class="btn-secondary" onclick="carregarVendasEDashboard()">Atualizar Histórico</button>
+                    <button class="btn-secondary" onclick="carregarDados()">Atualizar Histórico</button>
                 </div>
                 
                 <div class="table-container">
@@ -125,7 +144,7 @@
                                 <th>Produto</th>
                                 <th>Qtd</th>
                                 <th>Faturamento</th>
-                                <th>Lucro</th>
+                                <th>Lucro Líquido</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>

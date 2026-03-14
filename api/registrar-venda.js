@@ -5,7 +5,8 @@ export default async function handler(req, res) {
     const TABLE_PRODUTOS = 884394;
     const TABLE_VENDAS = 884420;
 
-    const { produtoID, cliente, quantidade, novoEstoque, financeiro } = req.body;
+    // Agora recebemos o metodoPagamento e os novos dados financeiros
+    const { produtoID, cliente, quantidade, novoEstoque, metodoPagamento, financeiro } = req.body;
 
     try {
         // 1. Atualiza Estoque
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
             body: JSON.stringify({ Estoque: novoEstoque })
         });
 
-        // 2. Registra Venda com data segura do servidor
+        // 2. Registra Venda com as novas colunas
         const dataVenda = new Date().toLocaleDateString('sv-SE');
         
         const response = await fetch(`https://api.baserow.io/api/database/rows/table/${TABLE_VENDAS}/?user_field_names=true`, {
@@ -25,9 +26,12 @@ export default async function handler(req, res) {
                 Produtos: [parseInt(produtoID)],
                 Quantidade: quantidade,
                 Preco_Venda: financeiro.preco,
-                Faturamento: financeiro.faturamento,
+                Faturamento: financeiro.faturamento, // Faturamento real (com desconto)
                 Custo_Produto: financeiro.custo,
-                Lucro_Venda: financeiro.lucro,
+                Lucro_Venda: financeiro.lucro,       // Lucro Líquido
+                Desconto: financeiro.desconto,       // NOVA COLUNA
+                Taxa_Maquininha: financeiro.taxa_maquininha, // NOVA COLUNA
+                Metodo_Pagamento: metodoPagamento,   // NOVA COLUNA
                 Data: dataVenda,
                 cliente: cliente
             })
