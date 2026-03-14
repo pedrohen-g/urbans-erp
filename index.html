@@ -184,7 +184,7 @@
     <div id="modalEdicaoVenda" class="modal">
         <div class="modal-content card">
             <h2>Editar Venda</h2>
-            <p style="margin-bottom: 15px; font-size: 13px; color: #666;">Alterar a quantidade ajustará automaticamente o estoque, o faturamento e o lucro desta venda.</p>
+            <p style="margin-bottom: 15px; font-size: 13px; color: #666;">Altere os dados abaixo. O estoque e o lucro serão recalculados automaticamente.</p>
             
             <input type="hidden" id="editVendaID">
             <input type="hidden" id="editVendaProdutoID">
@@ -192,15 +192,30 @@
             <input type="hidden" id="editVendaPreco">
             <input type="hidden" id="editVendaCusto">
             
-            <input id="editVendaProdutoNome" type="text" disabled style="background-color: #e9ecef;">
-            <input id="editVendaCliente" type="text" placeholder="Nome do Cliente">
-            <input id="editVendaData" type="date">
+            <input id="editVendaProdutoNome" type="text" disabled style="background-color: #e9ecef; margin-bottom: 10px; width: 100%; font-weight: bold;">
             
-            <label style="font-size: 14px; font-weight: bold; margin-bottom: 5px; display: block;">Quantidade Vendida:</label>
-            <input id="editVendaQuantidade" type="number" min="1">
+            <div class="input-group">
+                <input id="editVendaData" type="date" title="Data da Venda">
+                <input id="editVendaCliente" type="text" placeholder="Nome do Cliente">
+            </div>
+            
+            <div class="input-group">
+                <input id="editVendaQuantidade" type="number" min="1" placeholder="Quantidade">
+                <input id="editVendaDesconto" type="number" min="0" step="0.01" placeholder="Desconto R$">
+            </div>
+
+            <div class="input-group">
+                <select id="editVendaMetodo">
+                    <option value="Pix">Pix</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Débito">Cartão de Débito</option>
+                    <option value="Crédito">Cartão de Crédito</option>
+                </select>
+                <input id="editVendaTaxa" type="number" min="0" step="0.01" placeholder="Taxa Máquina %">
+            </div>
             
             <div class="input-group" style="margin-top: 15px;">
-                <button class="btn-success" onclick="salvarEdicaoVenda()">Salvar Venda e Ajustar Estoque</button>
+                <button class="btn-success" onclick="salvarEdicaoVenda()">Salvar Venda e Recalcular</button>
                 <button class="btn-secondary" onclick="fecharModalVenda()">Cancelar</button>
             </div>
         </div>
