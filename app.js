@@ -222,11 +222,12 @@ async function registrarVenda() {
     const p = produtosGlobais.find(x => x.id == pID);
     if (parseInt(p.Estoque) < qtd) return mostrarNotificacao("Estoque insuficiente", "erro");
 
+    // Matemática com trava de 2 casas decimais
     const faturamentoBruto = (limparNumero(p.Preco_Venda) * qtd);
-    const faturamentoComDesconto = faturamentoBruto - desc;
-    const valorTaxa = faturamentoComDesconto * (taxaPerc / 100);
+    const faturamentoComDesconto = Number((faturamentoBruto - desc).toFixed(2));
+    const valorTaxa = Number((faturamentoComDesconto * (taxaPerc / 100)).toFixed(2));
     const custoTotal = limparNumero(p.Custo) * qtd;
-    const lucroReal = faturamentoComDesconto - valorTaxa - custoTotal;
+    const lucroReal = Number((faturamentoComDesconto - valorTaxa - custoTotal).toFixed(2));
 
     const payload = {
         produtoID: pID,
@@ -427,10 +428,10 @@ async function salvarEdicaoVenda() {
 
     const diferencaEstoque = qtdAntiga - novaQtd;
     const faturamentoBruto = preco * novaQtd;
-    const faturamentoComDesconto = faturamentoBruto - desconto;
-    const valorTaxa = faturamentoComDesconto * (taxaPerc / 100);
+    const faturamentoComDesconto = Number((faturamentoBruto - desconto).toFixed(2));
+    const valorTaxa = Number((faturamentoComDesconto * (taxaPerc / 100)).toFixed(2));
     const custoTotal = custo * novaQtd;
-    const lucroReal = faturamentoComDesconto - valorTaxa - custoTotal;
+    const lucroReal = Number((faturamentoComDesconto - valorTaxa - custoTotal).toFixed(2));
 
     const payload = {
         id: id,
