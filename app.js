@@ -17,12 +17,8 @@ function verificarAcesso() {
     }
 }
 
-// Tranca de segurança
 verificarAcesso();
 
-// ----------------------------------------------------
-// UI E NAVEGAÇÃO
-// ----------------------------------------------------
 function abrirAba(evento, idAba) {
     let conteudos = document.getElementsByClassName("aba-conteudo");
     for (let i = 0; i < conteudos.length; i++) { conteudos[i].classList.remove("ativo"); }
@@ -46,17 +42,8 @@ function mostrarNotificacao(mensagem, tipo = 'sucesso') {
     }, 3500);
 }
 
-// ----------------------------------------------------
-// AUXILIARES DE FORMATAÇÃO
-// ----------------------------------------------------
-function limparNumero(valor) {
-    return parseFloat(valor?.toString().replace(',', '.')) || 0;
-}
-
-function formatarMoeda(valor) {
-    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
+function limparNumero(valor) { return parseFloat(valor?.toString().replace(',', '.')) || 0; }
+function formatarMoeda(valor) { return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 function formatarDataBR(dataIso) {
     if (!dataIso) return "-";
     if (dataIso.includes('/')) return dataIso;
@@ -65,22 +52,17 @@ function formatarDataBR(dataIso) {
 }
 
 // ----------------------------------------------------
-// CARREGAR DADOS (API SEGURA)
+// CARREGAR DADOS
 // ----------------------------------------------------
 async function carregarDados() {
     try {
         const resposta = await fetch('/api/get-dados');
         const dados = await resposta.json();
-        
         produtosGlobais = dados.produtos;
-        // Inverte para as vendas mais recentes aparecerem no topo
         vendasGlobais = dados.vendas.reverse(); 
-
         renderizarProdutos();
         renderizarVendasEDashboard();
-    } catch (error) {
-        mostrarNotificacao("Erro de conexão com o servidor.", "erro");
-    }
+    } catch (error) { mostrarNotificacao("Erro de conexão com o servidor.", "erro"); }
 }
 
 function renderizarProdutos() {
@@ -98,8 +80,10 @@ function renderizarProdutos() {
         potencialFaturamento += (preco * estoqueAtual);
 
         let margem = preco > 0 ? ((preco - custo) / preco) * 100 : 0;
-        let statusHtml = estoqueAtual === 0 ? '<span class="badge badge-danger">🔴</span>' : 
-                         (estoqueAtual < 3 ? '<span class="badge badge-warning">🟡</span>' : '<span class="badge badge-success">🟢</span>');
+        
+        // STATUS RESTAURADO COM TEXTO PARA O TEMA DARK
+        let statusHtml = estoqueAtual === 0 ? '<span class="badge badge-danger">🔴 Esgotado</span>' : 
+                         (estoqueAtual < 3 ? '<span class="badge badge-warning">🟡 Acabando</span>' : '<span class="badge badge-success">🟢 Normal</span>');
 
         tabela.innerHTML += `
             <tr>
@@ -111,7 +95,7 @@ function renderizarProdutos() {
                 <td>${formatarMoeda(preco)}</td>
                 <td><span class="badge margem-badge">${margem.toFixed(1).replace('.', ',')}%</span></td>
                 <td style="font-size: 16px;"><strong>${estoqueAtual}</strong></td>
-                <td style="text-align:center">${statusHtml}</td>
+                <td>${statusHtml}</td>
                 <td>
                     <button class="btn-acao btn-edit" onclick="abrirModalEdicao(${produto.id})">Editar</button>
                     <button class="btn-acao btn-delete" onclick="excluirProduto(${produto.id})">❌</button>
@@ -134,7 +118,7 @@ function renderizarProdutos() {
 }
 
 function renderizarVendasEDashboard() {
-    const hoje = new Date().toLocaleDateString('sv-SE');
+    const hoje = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
     const mesAtual = hoje.substring(0, 7); 
 
     let qtdVendasHoje = 0, lucroHoje = 0, lucroMes = 0;
@@ -154,14 +138,20 @@ function renderizarVendasEDashboard() {
         if (dataVendaIso === hoje) { qtdVendasHoje += qtd; lucroHoje += lucroVal; }
         if (dataVendaIso.startsWith(mesAtual)) { lucroMes += lucroVal; }
 
-        // Mudei para salvar tudo perfeito na tabela do Passo 1.3
+        // RESOLVIDO: O [object Object] agora pega corretamente a string interna (.value)
+        let metodoTxt = "-";
+        if (venda.Metodo_Pagamento) {
+            metodoTxt = venda.Metodo_Pagamento.value ? venda.Metodo_Pagamento.value : venda.Metodo_Pagamento;
+        }
+
         tabelaHistorico.innerHTML += `
             <tr>
                 <td>${formatarDataBR(venda.Data)}</td>
                 <td><strong>${venda.cliente || "-"}</strong></td>
                 <td>${venda.Produtos && venda.Produtos.length > 0 ? venda.Produtos[0].value : "Excluído"}</td>
                 <td><strong>${qtd}</strong></td>
-                <td style="color: var(--text-secondary);">${venda.Metodo_Pagamento || "-"}</td> <td>${formatarMoeda(limparNumero(venda.Faturamento))}</td>
+                <td style="color: var(--text-secondary);">${metodoTxt}</td>
+                <td>${formatarMoeda(limparNumero(venda.Faturamento))}</td>
                 <td class="lucro-verde">${formatarMoeda(lucroVal)}</td>
                 <td>
                     <button class="btn-acao btn-edit" onclick="abrirModalEdicaoVenda(${venda.id})">Editar</button>
@@ -189,7 +179,7 @@ function atualizarSelects() {
 }
 
 // ----------------------------------------------------
-// CÁLCULO EM TEMPO REAL E REGISTRO DE VENDA
+// REGISTRO DE VENDA
 // ----------------------------------------------------
 function atualizarResumoVenda() {
     const pID = document.getElementById("produtoVenda").value;
@@ -206,12 +196,10 @@ function atualizarResumoVenda() {
     const p = produtosGlobais.find(x => x.id == pID);
     if (!p) return;
 
-    // Matemática Financeira
     const faturamentoBruto = (limparNumero(p.Preco_Venda) * qtd);
     const faturamentoComDesconto = faturamentoBruto - desc;
     const valorTaxa = faturamentoComDesconto * (taxaPerc / 100);
     const custoTotal = limparNumero(p.Custo) * qtd;
-    
     const lucroLiquido = faturamentoComDesconto - valorTaxa - custoTotal;
 
     if(display) {
@@ -227,7 +215,6 @@ async function registrarVenda() {
     const pID = document.getElementById("produtoVenda").value;
     const qtd = parseInt(document.getElementById("quantidadeVenda").value);
     const cli = document.getElementById("clienteVenda").value;
-    
     const desc = parseFloat(document.getElementById("descontoVenda").value) || 0;
     const taxaPerc = parseFloat(document.getElementById("taxaVenda").value) || 0;
     const metodo = document.getElementById("metodoPagamento").value;
@@ -265,41 +252,30 @@ async function registrarVenda() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-
         if (res.ok) {
             mostrarNotificacao("Venda registrada com sucesso!");
-            
-            // Limpa os inputs
             document.getElementById("quantidadeVenda").value = "";
             document.getElementById("descontoVenda").value = "";
             document.getElementById("taxaVenda").value = "";
             document.getElementById("clienteVenda").value = "";
             document.getElementById("resumoVendaDisplay").style.display = "none";
-            
             carregarDados();
         }
     } catch (e) { mostrarNotificacao("Erro ao registrar venda.", "erro"); }
 }
 
 // ----------------------------------------------------
-// ESTORNO E ENTRADA
+// AÇÕES DE CRUD (ESTORNO, ENTRADA, ETC)
 // ----------------------------------------------------
 async function excluirVenda(id) {
-    if (!confirm("Deseja estornar esta venda? O produto voltará ao estoque.")) return;
+    if (!confirm("Deseja estornar esta venda?")) return;
     const venda = vendasGlobais.find(v => v.id === id);
     const pID = venda.Produtos && venda.Produtos.length > 0 ? venda.Produtos[0].id : null;
     const qtd = venda.Quantidade;
-
     if(!pID) return mostrarNotificacao("Erro: Produto não encontrado para estorno.", "erro");
-
     try {
-        const res = await fetch(`/api/excluir-venda?id=${id}&produtoID=${pID}&quantidadeRetorno=${qtd}`, {
-            method: 'DELETE'
-        });
-        if (res.ok) {
-            mostrarNotificacao("Venda estornada com sucesso!");
-            carregarDados();
-        }
+        const res = await fetch(`/api/excluir-venda?id=${id}&produtoID=${pID}&quantidadeRetorno=${qtd}`, { method: 'DELETE' });
+        if (res.ok) { mostrarNotificacao("Venda estornada com sucesso!"); carregarDados(); }
     } catch (error) { mostrarNotificacao("Erro ao estornar venda.", "erro"); }
 }
 
@@ -308,23 +284,16 @@ async function entradaEstoque() {
     const qtd = parseInt(document.getElementById("quantidadeEntrada").value);
     if (!pID || !qtd || qtd <= 0) return mostrarNotificacao("Preencha os dados corretamente.", "aviso");
     const p = produtosGlobais.find(x => x.id == pID);
-    
     try {
         const res = await fetch('/api/entrada-estoque', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: pID, novoEstoque: (parseInt(p.Estoque) || 0) + qtd })
         });
-        if(res.ok) {
-            mostrarNotificacao("Estoque atualizado!");
-            carregarDados();
-        }
+        if(res.ok) { mostrarNotificacao("Estoque atualizado!"); carregarDados(); }
     } catch(e) { mostrarNotificacao("Erro ao atualizar estoque", "erro"); }
 }
 
-// ----------------------------------------------------
-// CRUD DE PRODUTOS
-// ----------------------------------------------------
 async function cadastrarProduto() {
     const Produto = document.getElementById("cadProduto").value;
     const Modelo = document.getElementById("cadModelo").value;
@@ -333,30 +302,22 @@ async function cadastrarProduto() {
     const Custo = parseFloat(document.getElementById("cadCusto").value);
     const Preco_Venda = parseFloat(document.getElementById("cadPreco").value);
     const Estoque = parseInt(document.getElementById("cadEstoque").value) || 0;
-
     if (!Produto || isNaN(Custo) || isNaN(Preco_Venda)) return mostrarNotificacao("Preencha os campos obrigatórios.", "aviso");
-
     try {
         const res = await fetch('/api/cadastrar-produto', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ Produto, Modelo, Cor, Tamanho, Custo, Preco_Venda, Estoque })
         });
-        if(res.ok) {
-            mostrarNotificacao("Produto cadastrado!");
-            carregarDados();
-        }
+        if(res.ok) { mostrarNotificacao("Produto cadastrado!"); carregarDados(); }
     } catch(e) { mostrarNotificacao("Erro ao cadastrar", "erro"); }
 }
 
 async function excluirProduto(id) {
-    if (!confirm("Tem certeza que deseja apagar este modelo do sistema?")) return;
+    if (!confirm("Tem certeza que deseja apagar este modelo?")) return;
     try {
         const res = await fetch(`/api/excluir-produto?id=${id}`, { method: 'DELETE' });
-        if(res.ok) {
-            mostrarNotificacao("Produto excluído.");
-            carregarDados();
-        }
+        if(res.ok) { mostrarNotificacao("Produto excluído."); carregarDados(); }
     } catch (e) { mostrarNotificacao("Erro ao excluir", "erro"); }
 }
 
@@ -367,17 +328,12 @@ function abrirModalEdicao(id) {
     document.getElementById("editCusto").value = limparNumero(p.Custo);
     document.getElementById("editPreco").value = limparNumero(p.Preco_Venda);
     document.getElementById("editEstoque").value = p.Estoque;
-    // Novos campos da UI 1.3
     document.getElementById("editModelo").value = p.Modelo || "";
     document.getElementById("editCor").value = p.Cor || "";
     document.getElementById("editTamanho").value = p.Tamanho || "";
-
     document.getElementById("modalEdicao").classList.add("ativo");
 }
-
-function fecharModal() {
-    document.getElementById("modalEdicao").classList.remove("ativo");
-}
+function fecharModal() { document.getElementById("modalEdicao").classList.remove("ativo"); }
 
 async function salvarEdicao() {
     const id = document.getElementById("editID").value;
@@ -388,23 +344,18 @@ async function salvarEdicao() {
     const Modelo = document.getElementById("editModelo").value;
     const Cor = document.getElementById("editCor").value;
     const Tamanho = document.getElementById("editTamanho").value;
-
     try {
         const res = await fetch('/api/editar-produto', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, Produto, Custo, Preco_Venda, Estoque, Modelo, Cor, Tamanho })
         });
-        if(res.ok){
-            mostrarNotificacao("Alterações salvas!");
-            fecharModal();
-            carregarDados();
-        }
+        if(res.ok){ mostrarNotificacao("Alterações salvas!"); fecharModal(); carregarDados(); }
     } catch (e) { mostrarNotificacao("Erro ao editar", "erro"); }
 }
 
 // ----------------------------------------------------
-// EDIÇÃO DE VENDAS (PASSO 4 COMPLETO)
+// EDIÇÃO DE VENDAS (AGORA 100% FUNCIONAL)
 // ----------------------------------------------------
 function abrirModalEdicaoVenda(id) {
     const venda = vendasGlobais.find(v => v.id === id);
@@ -414,41 +365,45 @@ function abrirModalEdicaoVenda(id) {
     document.getElementById("editVendaProdutoID").value = venda.Produtos[0].id;
     document.getElementById("editVendaQtdAntiga").value = venda.Quantidade;
     
-    // Recupera Custo e Preco unitários originais para recalcular
     document.getElementById("editVendaPreco").value = limparNumero(venda.Preco_Venda);
     document.getElementById("editVendaCusto").value = limparNumero(venda.Custo_Produto);
 
     document.getElementById("editVendaProdutoNome").value = venda.Produtos[0].value;
     document.getElementById("editVendaCliente").value = venda.cliente || "";
     
-    // Formata a data para o input date (YYYY-MM-DD)
-    let dataIso = venda.Data ? venda.Data.split('T')[0] : "";
-    if (venda.Data && venda.Data.includes('/')) {
-        const p = venda.Data.split('/');
-        dataIso = `${p[2]}-${p[1]}-${p[0]}`;
+    // Tratamento Robusto de Data (Isso estava travando o botão de Salvar!)
+    let dataIso = "";
+    if (venda.Data) {
+        if (venda.Data.includes('/')) {
+            const p = venda.Data.split('/');
+            dataIso = `${p[2]}-${p[1]}-${p[0]}`;
+        } else {
+            dataIso = venda.Data.split('T')[0];
+        }
+    } else {
+        dataIso = new Date().toLocaleDateString('en-CA');
     }
     document.getElementById("editVendaData").value = dataIso;
     
     document.getElementById("editVendaQuantidade").value = venda.Quantidade;
     document.getElementById("editVendaDesconto").value = limparNumero(venda.Desconto) || 0;
     
-    // Seleciona o Metodo, se não tiver assume Dinheiro
-    document.getElementById("editVendaMetodo").value = venda.Metodo_Pagamento || "Dinheiro";
+    // Tratamento Robusto do Objeto do Método
+    let metodoTxt = "Dinheiro";
+    if (venda.Metodo_Pagamento) {
+        metodoTxt = venda.Metodo_Pagamento.value ? venda.Metodo_Pagamento.value : venda.Metodo_Pagamento;
+    }
+    document.getElementById("editVendaMetodo").value = metodoTxt;
     
-    // Descobre a % da taxa (Taxa_Maquininha em R$ / (Faturamento Real) * 100)
     let faturamentoReal = limparNumero(venda.Faturamento);
     let taxaReais = limparNumero(venda.Taxa_Maquininha);
-    // Se digitou R$ 200 de faturamento e R$ 4 de taxa -> (4 / 200) * 100 = 2%
     let taxaPerc = faturamentoReal > 0 ? (taxaReais / faturamentoReal) * 100 : 0;
-    
     document.getElementById("editVendaTaxa").value = taxaPerc.toFixed(2);
 
     document.getElementById("modalEdicaoVenda").classList.add("ativo");
 }
 
-function fecharModalVenda() {
-    document.getElementById("modalEdicaoVenda").classList.remove("ativo");
-}
+function fecharModalVenda() { document.getElementById("modalEdicaoVenda").classList.remove("ativo"); }
 
 async function salvarEdicaoVenda() {
     const id = document.getElementById("editVendaID").value;
@@ -466,12 +421,10 @@ async function salvarEdicaoVenda() {
     const metodo = document.getElementById("editVendaMetodo").value;
     const taxaPerc = parseFloat(document.getElementById("editVendaTaxa").value) || 0;
 
-    if (!novaQtd || novaQtd <= 0 || !novaData) return mostrarNotificacao("Preencha Quantidade e Data corretamente.", "aviso");
+    // Se o botão não estiver funcionando, agora o aviso VAI aparecer em cima do modal!
+    if (!novaQtd || novaQtd <= 0 || !novaData) return mostrarNotificacao("Preencha a Quantidade e a Data corretamente.", "aviso");
 
-    // Lógica atômica de Devolução de Estoque (Calculado na API)
     const diferencaEstoque = qtdAntiga - novaQtd;
-
-    // Recalcula o Financeiro completo
     const faturamentoBruto = preco * novaQtd;
     const faturamentoComDesconto = faturamentoBruto - desconto;
     const valorTaxa = faturamentoComDesconto * (taxaPerc / 100);
@@ -487,10 +440,10 @@ async function salvarEdicaoVenda() {
             cliente: novoCliente,
             Data: novaData,
             Desconto: desconto,
-            Metodo_Pagamento: metodo,
+            Metodo_Pagamento: metodo, // Agora enviamos só a string correta
             Taxa_Maquininha: valorTaxa,
-            Faturamento: faturamentoComDesconto, // Faturamento Real
-            Lucro_Venda: lucroReal // Lucro Líquido
+            Faturamento: faturamentoComDesconto,
+            Lucro_Venda: lucroReal
         }
     };
 
@@ -506,11 +459,9 @@ async function salvarEdicaoVenda() {
             fecharModalVenda();
             carregarDados();
         } else {
-             const err = await res.json();
-             mostrarNotificacao("Erro: " + (err.error || "na API"), "erro");
+             mostrarNotificacao("Erro do Servidor ao editar venda.", "erro");
         }
     } catch (e) { mostrarNotificacao("Erro na comunicação com o servidor.", "erro"); }
 }
 
-// Inicialização Final
 carregarDados();
