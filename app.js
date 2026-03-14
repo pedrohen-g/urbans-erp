@@ -5,6 +5,11 @@ const SENHA_ACESSO = "urbans123";
 let produtosGlobais = [];
 let vendasGlobais = []; 
 
+// Variáveis para guardar os gráficos
+let graficoEvolucaoVendas = null;
+let graficoTopProdutos = null;
+let graficoPagamentos = null;
+
 function verificarAcesso() {
     const senhaDigitada = prompt("Digite a senha de acesso ao Urbans ERP:");
     if (senhaDigitada !== SENHA_ACESSO) {
@@ -26,6 +31,9 @@ function abrirAba(evento, idAba) {
     for (let i = 0; i < botoes.length; i++) { botoes[i].classList.remove("ativo"); }
     document.getElementById(idAba).classList.add("ativo");
     evento.currentTarget.classList.add("ativo");
+
+    // Aciona a renderização dos gráficos quando abrir o BI
+    if(idAba === 'abaDashboard') { renderizarDashboard(); }
 }
 
 function mostrarNotificacao(mensagem, tipo = 'sucesso') {
@@ -39,7 +47,7 @@ function mostrarNotificacao(mensagem, tipo = 'sucesso') {
     setTimeout(() => {
         toast.classList.add('esconder');
         setTimeout(() => toast.remove(), 300);
-    }, 4500); // Deixei o erro visível por mais tempo
+    }, 4500);
 }
 
 function limparNumero(valor) { return parseFloat(valor?.toString().replace(',', '.')) || 0; }
@@ -62,6 +70,11 @@ async function carregarDados() {
         vendasGlobais = dados.vendas.reverse(); 
         renderizarProdutos();
         renderizarVendasEDashboard();
+        
+        // Se a aba do dashboard estiver aberta, atualiza os gráficos
+        if(document.getElementById('abaDashboard').classList.contains('ativo')) {
+            renderizarDashboard();
+        }
     } catch (error) { mostrarNotificacao("Erro de conexão com o servidor.", "erro"); }
 }
 
@@ -81,6 +94,7 @@ function renderizarProdutos() {
 
         let margem = preco > 0 ? ((preco - custo) / preco) * 100 : 0;
         
+        // RESTAURADO COM SUCESSO AS ETIQUETAS DE STATUS!
         let statusHtml = estoqueAtual === 0 ? '<span class="badge badge-danger">🔴 Esgotado</span>' : 
                          (estoqueAtual < 3 ? '<span class="badge badge-warning">🟡 Acabando</span>' : '<span class="badge badge-success">🟢 Normal</span>');
 
@@ -117,7 +131,7 @@ function renderizarProdutos() {
 }
 
 function renderizarVendasEDashboard() {
-    const hoje = new Date().toLocaleDateString('en-CA'); 
+    const hoje = new Date().toLocaleDateString('en-CA');
     const mesAtual = hoje.substring(0, 7); 
 
     let qtdVendasHoje = 0, lucroHoje = 0, lucroMes = 0;
@@ -137,9 +151,10 @@ function renderizarVendasEDashboard() {
         if (dataVendaIso === hoje) { qtdVendasHoje += qtd; lucroHoje += lucroVal; }
         if (dataVendaIso.startsWith(mesAtual)) { lucroMes += lucroVal; }
 
+        // O FANTASMA DO [object Object] DESTRUÍDO DE NOVO!
         let metodoTxt = "-";
         if (venda.Metodo_Pagamento) {
-            metodoTxt = venda.Metodo_Pagamento.value ? venda.Metodo_Pagamento.value : venda.Metodo_Pagamento;
+            metodoTxt = typeof venda.Metodo_Pagamento === 'object' ? (venda.Metodo_Pagamento.value || "-") : venda.Metodo_Pagamento;
         }
 
         tabelaHistorico.innerHTML += `
@@ -222,7 +237,6 @@ async function registrarVenda() {
     const p = produtosGlobais.find(x => x.id == pID);
     if (parseInt(p.Estoque) < qtd) return mostrarNotificacao("Estoque insuficiente", "erro");
 
-    // Matemática com trava de 2 casas decimais
     const faturamentoBruto = (limparNumero(p.Preco_Venda) * qtd);
     const faturamentoComDesconto = Number((faturamentoBruto - desc).toFixed(2));
     const valorTaxa = Number((faturamentoComDesconto * (taxaPerc / 100)).toFixed(2));
@@ -251,7 +265,6 @@ async function registrarVenda() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        
         if (res.ok) {
             mostrarNotificacao("Venda registrada com sucesso!");
             document.getElementById("quantidadeVenda").value = "";
@@ -261,102 +274,11 @@ async function registrarVenda() {
             document.getElementById("resumoVendaDisplay").style.display = "none";
             carregarDados();
         } else {
-            // SE O BASEROW RECUSAR, AGORA ELE AVISA AQUI!
             const errData = await res.json();
             console.error(errData);
-            mostrarNotificacao("Erro do Banco de Dados. Verifique se as opções de pagamento batem com o Baserow.", "erro");
+            mostrarNotificacao("Erro do Banco de Dados.", "erro");
         }
-    } catch (e) { mostrarNotificacao("Erro de comunicação ao registrar venda.", "erro"); }
-}
-
-// ----------------------------------------------------
-// AÇÕES DE CRUD
-// ----------------------------------------------------
-async function excluirVenda(id) {
-    if (!confirm("Deseja estornar esta venda?")) return;
-    const venda = vendasGlobais.find(v => v.id === id);
-    const pID = venda.Produtos && venda.Produtos.length > 0 ? venda.Produtos[0].id : null;
-    const qtd = venda.Quantidade;
-    if(!pID) return mostrarNotificacao("Erro: Produto não encontrado para estorno.", "erro");
-    try {
-        const res = await fetch(`/api/excluir-venda?id=${id}&produtoID=${pID}&quantidadeRetorno=${qtd}`, { method: 'DELETE' });
-        if (res.ok) { mostrarNotificacao("Venda estornada com sucesso!"); carregarDados(); }
-    } catch (error) { mostrarNotificacao("Erro ao estornar venda.", "erro"); }
-}
-
-async function entradaEstoque() {
-    const pID = document.getElementById("produtoEntrada").value;
-    const qtd = parseInt(document.getElementById("quantidadeEntrada").value);
-    if (!pID || !qtd || qtd <= 0) return mostrarNotificacao("Preencha os dados corretamente.", "aviso");
-    const p = produtosGlobais.find(x => x.id == pID);
-    try {
-        const res = await fetch('/api/entrada-estoque', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: pID, novoEstoque: (parseInt(p.Estoque) || 0) + qtd })
-        });
-        if(res.ok) { mostrarNotificacao("Estoque atualizado!"); carregarDados(); }
-    } catch(e) { mostrarNotificacao("Erro ao atualizar estoque", "erro"); }
-}
-
-async function cadastrarProduto() {
-    const Produto = document.getElementById("cadProduto").value;
-    const Modelo = document.getElementById("cadModelo").value;
-    const Cor = document.getElementById("cadCor").value;
-    const Tamanho = document.getElementById("cadTamanho").value;
-    const Custo = parseFloat(document.getElementById("cadCusto").value);
-    const Preco_Venda = parseFloat(document.getElementById("cadPreco").value);
-    const Estoque = parseInt(document.getElementById("cadEstoque").value) || 0;
-    if (!Produto || isNaN(Custo) || isNaN(Preco_Venda)) return mostrarNotificacao("Preencha os campos obrigatórios.", "aviso");
-    try {
-        const res = await fetch('/api/cadastrar-produto', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ Produto, Modelo, Cor, Tamanho, Custo, Preco_Venda, Estoque })
-        });
-        if(res.ok) { mostrarNotificacao("Produto cadastrado!"); carregarDados(); }
-    } catch(e) { mostrarNotificacao("Erro ao cadastrar", "erro"); }
-}
-
-async function excluirProduto(id) {
-    if (!confirm("Tem certeza que deseja apagar este modelo?")) return;
-    try {
-        const res = await fetch(`/api/excluir-produto?id=${id}`, { method: 'DELETE' });
-        if(res.ok) { mostrarNotificacao("Produto excluído."); carregarDados(); }
-    } catch (e) { mostrarNotificacao("Erro ao excluir", "erro"); }
-}
-
-function abrirModalEdicao(id) {
-    const p = produtosGlobais.find(x => x.id === id);
-    document.getElementById("editID").value = p.id;
-    document.getElementById("editProduto").value = p.Produto;
-    document.getElementById("editCusto").value = limparNumero(p.Custo);
-    document.getElementById("editPreco").value = limparNumero(p.Preco_Venda);
-    document.getElementById("editEstoque").value = p.Estoque;
-    document.getElementById("editModelo").value = p.Modelo || "";
-    document.getElementById("editCor").value = p.Cor || "";
-    document.getElementById("editTamanho").value = p.Tamanho || "";
-    document.getElementById("modalEdicao").classList.add("ativo");
-}
-function fecharModal() { document.getElementById("modalEdicao").classList.remove("ativo"); }
-
-async function salvarEdicao() {
-    const id = document.getElementById("editID").value;
-    const Produto = document.getElementById("editProduto").value;
-    const Custo = parseFloat(document.getElementById("editCusto").value);
-    const Preco_Venda = parseFloat(document.getElementById("editPreco").value);
-    const Estoque = parseInt(document.getElementById("editEstoque").value);
-    const Modelo = document.getElementById("editModelo").value;
-    const Cor = document.getElementById("editCor").value;
-    const Tamanho = document.getElementById("editTamanho").value;
-    try {
-        const res = await fetch('/api/editar-produto', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, Produto, Custo, Preco_Venda, Estoque, Modelo, Cor, Tamanho })
-        });
-        if(res.ok){ mostrarNotificacao("Alterações salvas!"); fecharModal(); carregarDados(); }
-    } catch (e) { mostrarNotificacao("Erro ao editar", "erro"); }
+    } catch (e) { mostrarNotificacao("Erro ao registrar venda.", "erro"); }
 }
 
 // ----------------------------------------------------
@@ -394,7 +316,7 @@ function abrirModalEdicaoVenda(id) {
     
     let metodoTxt = "Dinheiro";
     if (venda.Metodo_Pagamento) {
-        metodoTxt = venda.Metodo_Pagamento.value ? venda.Metodo_Pagamento.value : venda.Metodo_Pagamento;
+        metodoTxt = typeof venda.Metodo_Pagamento === 'object' ? (venda.Metodo_Pagamento.value || "Dinheiro") : venda.Metodo_Pagamento;
     }
     document.getElementById("editVendaMetodo").value = metodoTxt;
     
@@ -461,12 +383,160 @@ async function salvarEdicaoVenda() {
             fecharModalVenda();
             carregarDados();
         } else {
-            // SE O BASEROW RECUSAR, AGORA ELE AVISA AQUI TAMBÉM!
-            const errData = await res.json();
-            console.error(errData);
-            mostrarNotificacao("Erro do Banco: O Baserow rejeitou a edição da Venda.", "erro");
+             const errData = await res.json();
+             console.error(errData);
+             mostrarNotificacao("Erro do Servidor ao editar venda.", "erro");
         }
     } catch (e) { mostrarNotificacao("Erro na comunicação com o servidor.", "erro"); }
+}
+
+// ----------------------------------------------------
+// MOTOR DE BUSINESS INTELLIGENCE (DASHBOARD)
+// ----------------------------------------------------
+function renderizarDashboard() {
+    let capEstoque = produtosGlobais.reduce((acc, p) => acc + (limparNumero(p.Custo) * (parseInt(p.Estoque)||0)), 0);
+    document.getElementById('biCapitalEstoque').innerText = formatarMoeda(capEstoque);
+
+    const hoje = new Date().toLocaleDateString('en-CA');
+    const mesAtual = hoje.substring(0, 7); 
+    
+    let fatMes = 0, lucroMes = 0;
+    
+    Chart.defaults.color = '#aaaaaa';
+    Chart.defaults.borderColor = '#333333';
+
+    let faturamentoPorDia = {};
+    let lucroPorDia = {};
+    let qtdPorProduto = {};
+    let fatPorPagamento = {};
+
+    vendasGlobais.forEach(v => {
+        let dataIso = v.Data?.split('T')[0] || "";
+        const fR = limparNumero(v.Faturamento);
+        const lR = limparNumero(v.Lucro_Venda);
+        const qtd = parseInt(v.Quantidade) || 0;
+        const prodNome = v.Produtos?.[0]?.value || "Outro";
+        
+        let met = "Dinheiro";
+        if(v.Metodo_Pagamento) {
+            met = typeof v.Metodo_Pagamento === 'object' ? (v.Metodo_Pagamento.value || "Dinheiro") : v.Metodo_Pagamento;
+        }
+
+        if (dataIso.startsWith(mesAtual)) {
+            fatMes += fR; lucroMes += lR;
+            let dia = dataIso.split('-')[2];
+            faturamentoPorDia[dia] = (faturamentoPorDia[dia] || 0) + fR;
+            lucroPorDia[dia] = (lucroPorDia[dia] || 0) + lR;
+        }
+
+        qtdPorProduto[prodNome] = (qtdPorProduto[prodNome] || 0) + qtd;
+        fatPorPagamento[met] = (fatPorPagamento[met] || 0) + fR;
+    });
+
+    document.getElementById('biFatMes').innerText = formatarMoeda(fatMes);
+    document.getElementById('biLucroMes').innerText = formatarMoeda(lucroMes);
+
+    // GRÁFICO 1
+    if(graficoEvolucaoVendas) graficoEvolucaoVendas.destroy();
+    const diasOrdenados = Object.keys(faturamentoPorDia).sort();
+    const dadosFatDia = diasOrdenados.map(dia => faturamentoPorDia[dia]);
+    const dadosLucroDia = diasOrdenados.map(dia => lucroPorDia[dia]);
+
+    graficoEvolucaoVendas = new Chart(document.getElementById('graficoLinha'), {
+        type: 'line',
+        data: {
+            labels: diasOrdenados.map(d => `Dia ${d}`),
+            datasets: [
+                { label: 'Faturamento', data: dadosFatDia, borderColor: '#5c6bc0', backgroundColor: 'rgba(92, 107, 192, 0.2)', fill: true, tension: 0.3 },
+                { label: 'Lucro', data: dadosLucroDia, borderColor: '#66bb6a', backgroundColor: 'transparent', tension: 0.3 }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // GRÁFICO 2
+    if(graficoTopProdutos) graficoTopProdutos.destroy();
+    let produtosOrdenados = Object.entries(qtdPorProduto).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    graficoTopProdutos = new Chart(document.getElementById('graficoBarras'), {
+        type: 'bar',
+        data: {
+            labels: produtosOrdenados.map(p => p[0].substring(0, 15) + '...'),
+            datasets: [{
+                label: 'Unidades Vendidas',
+                data: produtosOrdenados.map(p => p[1]),
+                backgroundColor: '#ffa726',
+                borderRadius: 4
+            }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+    });
+
+    // GRÁFICO 3
+    if(graficoPagamentos) graficoPagamentos.destroy();
+    graficoPagamentos = new Chart(document.getElementById('graficoPizza'), {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(fatPorPagamento),
+            datasets: [{
+                data: Object.values(fatPorPagamento),
+                backgroundColor: ['#5c6bc0', '#66bb6a', '#ffa726', '#ef5350'],
+                borderWidth: 0
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+// ----------------------------------------------------
+// RESTANTE DOS CRUDS (AÇÕES DE PRODUTO)
+// ----------------------------------------------------
+async function excluirVenda(id) {
+    if (!confirm("Deseja estornar esta venda?")) return;
+    const v = vendasGlobais.find(x => x.id === id);
+    const pID = v.Produtos?.[0]?.id, qtd = v.Quantidade;
+    if(!pID) return mostrarNotificacao("Erro", "erro");
+    try {
+        const res = await fetch(`/api/excluir-venda?id=${id}&produtoID=${pID}&quantidadeRetorno=${qtd}`, { method: 'DELETE' });
+        if (res.ok) { mostrarNotificacao("Venda estornada!"); carregarDados(); }
+    } catch (e) { mostrarNotificacao("Erro", "erro"); }
+}
+async function entradaEstoque() {
+    const id = document.getElementById("produtoEntrada").value, q = parseInt(document.getElementById("quantidadeEntrada").value);
+    const p = produtosGlobais.find(x => x.id == id);
+    if (!id || !q) return mostrarNotificacao("Dados incompletos", "aviso");
+    try {
+        const res = await fetch('/api/entrada-estoque', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, novoEstoque: (parseInt(p.Estoque) || 0) + q }) });
+        if(res.ok) { mostrarNotificacao("Estoque atualizado!"); carregarDados(); }
+    } catch(e) { mostrarNotificacao("Erro", "erro"); }
+}
+async function cadastrarProduto() {
+    const p = document.getElementById("cadProduto").value, m = document.getElementById("cadModelo").value, c = document.getElementById("cadCor").value, t = document.getElementById("cadTamanho").value, cus = parseFloat(document.getElementById("cadCusto").value), pr = parseFloat(document.getElementById("cadPreco").value), est = parseInt(document.getElementById("cadEstoque").value) || 0;
+    if (!p || isNaN(cus) || isNaN(pr)) return mostrarNotificacao("Dados obrigatórios", "aviso");
+    try {
+        const res = await fetch('/api/cadastrar-produto', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Produto:p, Modelo:m, Cor:c, Tamanho:t, Custo:cus, Preco_Venda:pr, Estoque:est }) });
+        if(res.ok) { mostrarNotificacao("Cadastrado!"); carregarDados(); }
+    } catch(e) { mostrarNotificacao("Erro", "erro"); }
+}
+async function excluirProduto(id) {
+    if (!confirm("Apagar modelo?")) return;
+    try {
+        const res = await fetch(`/api/excluir-produto?id=${id}`, { method: 'DELETE' });
+        if(res.ok) { mostrarNotificacao("Excluído!"); carregarDados(); }
+    } catch (e) { mostrarNotificacao("Erro", "erro"); }
+}
+function abrirModalEdicao(id) {
+    const p = produtosGlobais.find(x => x.id === id);
+    document.getElementById("editID").value = p.id; document.getElementById("editProduto").value = p.Produto; document.getElementById("editCusto").value = limparNumero(p.Custo); document.getElementById("editPreco").value = limparNumero(p.Preco_Venda); document.getElementById("editEstoque").value = p.Estoque; document.getElementById("editModelo").value = p.Modelo || ""; document.getElementById("editCor").value = p.Cor || ""; document.getElementById("editTamanho").value = p.Tamanho || "";
+    document.getElementById("modalEdicao").classList.add("ativo");
+}
+function fecharModal() { document.getElementById("modalEdicao").classList.remove("ativo"); }
+async function salvarEdicao() {
+    const id = document.getElementById("editID").value, p = document.getElementById("editProduto").value, cus = parseFloat(document.getElementById("editCusto").value), pr = parseFloat(document.getElementById("editPreco").value), est = parseInt(document.getElementById("editEstoque").value), m = document.getElementById("editModelo").value, c = document.getElementById("editCor").value, t = document.getElementById("editTamanho").value;
+    try {
+        const res = await fetch('/api/editar-produto', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, Produto:p, Custo:cus, Preco_Venda:pr, Estoque:est, Modelo:m, Cor:c, Tamanho:t }) });
+        if(res.ok){ mostrarNotificacao("Salvo!"); fecharModal(); carregarDados(); }
+    } catch (e) { mostrarNotificacao("Erro", "erro"); }
 }
 
 carregarDados();
