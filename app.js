@@ -112,17 +112,26 @@ function renderizarVendas() {
         const qtd = parseInt(venda.Quantidade) || 0;
         const lucroVal = limparNumero(venda.Lucro_Venda);
         
-        // Blindagem contra o bug [object Object]
         let metodoTxt = "Dinheiro";
         if(venda.Metodo_Pagamento) {
             metodoTxt = typeof venda.Metodo_Pagamento === 'object' ? (venda.Metodo_Pagamento.value || "Dinheiro") : venda.Metodo_Pagamento;
+        }
+
+        let nomeProduto = "-";
+        if(venda.Produtos && venda.Produtos.length > 0) {
+            const prodEncontrado = produtosGlobais.find(p => p.id === venda.Produtos[0].id);
+            if(prodEncontrado) {
+                nomeProduto = `${prodEncontrado.Produto} ${prodEncontrado.Modelo} - ${prodEncontrado.Cor} (${prodEncontrado.Tamanho})`;
+            } else {
+                nomeProduto = venda.Produtos[0].value;
+            }
         }
 
         tabela.innerHTML += `
             <tr>
                 <td>${dataIso.split('-').reverse().join('/')}</td>
                 <td><strong>${venda.cliente || "-"}</strong></td>
-                <td>${venda.Produtos?.[0]?.value || "-"}</td>
+                <td>${nomeProduto}</td>
                 <td>${qtd}</td><td>${metodoTxt}</td>
                 <td>${formatarMoeda(limparNumero(venda.Faturamento))}</td>
                 <td class="lucro-verde">${formatarMoeda(lucroVal)}</td>
@@ -138,7 +147,7 @@ function atualizarSelects() {
     const sV = document.getElementById("produtoVenda"), sE = document.getElementById("produtoEntrada");
     sV.innerHTML = sE.innerHTML = '<option value="">Selecione...</option>';
     produtosGlobais.forEach(p => {
-        const txt = `${p.Produto} ${p.Modelo} (${p.Tamanho})`;
+        const txt = `${p.Produto} ${p.Modelo} - ${p.Cor} (${p.Tamanho})`;
         sV.add(new Option(txt, p.id)); sE.add(new Option(txt, p.id));
     });
 }
@@ -222,7 +231,14 @@ function abrirModalEdicaoVenda(id) {
     document.getElementById("editVendaQtdAntiga").value = v.Quantidade;
     document.getElementById("editVendaPreco").value = limparNumero(v.Preco_Venda);
     document.getElementById("editVendaCusto").value = limparNumero(v.Custo_Produto);
-    document.getElementById("editVendaProdutoNome").value = v.Produtos[0].value;
+    
+    let nomeProduto = v.Produtos[0].value;
+    const prodEncontrado = produtosGlobais.find(p => p.id === v.Produtos[0].id);
+    if(prodEncontrado) {
+        nomeProduto = `${prodEncontrado.Produto} ${prodEncontrado.Modelo} - ${prodEncontrado.Cor} (${prodEncontrado.Tamanho})`;
+    }
+    document.getElementById("editVendaProdutoNome").value = nomeProduto;
+    
     document.getElementById("editVendaCliente").value = v.cliente || "";
     document.getElementById("editVendaData").value = v.Data?.split('T')[0] || "";
     document.getElementById("editVendaQuantidade").value = v.Quantidade;
@@ -253,7 +269,7 @@ async function entradaEstoque() {
     
     try {
         const res = await fetch('/api/entrada-estoque', { 
-            method: 'POST', // Mudou para POST pois agora salva histórico!
+            method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify({ 
                 produtoID: id, 
@@ -336,7 +352,7 @@ function renderizarDashboard() {
         const hoje = new Date().toLocaleDateString('en-CA');
         const mesAtual = hoje.substring(0, 7); 
         
-        let fatMes = 0, lucroMes = 0;
+        let fatMes = 0, lucroMes = 0, pecasVendidasMes = 0, numVendasMes = 0;
         let faturamentoPorDia = {};
         let lucroPorDia = {};
         let qtdPorProduto = {};
@@ -350,7 +366,18 @@ function renderizarDashboard() {
             const fR = limparNumero(v.Faturamento);
             const lR = limparNumero(v.Lucro_Venda);
             const qtd = parseInt(v.Quantidade) || 0;
-            const prodNome = v.Produtos?.[0]?.value || "Outro";
+            
+            // CRUZAMENTO DE DADOS: Pegando o nome completo do Produto para o Gráfico
+            let prodNome = "Outro";
+            if (v.Produtos && v.Produtos.length > 0) {
+                const pID = v.Produtos[0].id;
+                const produtoNoBanco = produtosGlobais.find(p => p.id === pID);
+                if (produtoNoBanco) {
+                    prodNome = `${produtoNoBanco.Produto} ${produtoNoBanco.Modelo} - ${produtoNoBanco.Cor} (${produtoNoBanco.Tamanho})`;
+                } else {
+                    prodNome = v.Produtos[0].value;
+                }
+            }
             
             let met = "Dinheiro";
             if(v.Metodo_Pagamento) {
@@ -358,7 +385,11 @@ function renderizarDashboard() {
             }
 
             if (dataIso.startsWith(mesAtual)) {
-                fatMes += fR; lucroMes += lR;
+                fatMes += fR; 
+                lucroMes += lR;
+                pecasVendidasMes += qtd;
+                numVendasMes++; // Conta quantas vendas (pedidos) foram feitas
+                
                 let dia = dataIso.split('-')[2];
                 if(dia) {
                     faturamentoPorDia[dia] = (faturamentoPorDia[dia] || 0) + fR;
@@ -372,6 +403,10 @@ function renderizarDashboard() {
 
         document.getElementById('biFatMes').innerText = formatarMoeda(fatMes);
         document.getElementById('biLucroMes').innerText = formatarMoeda(lucroMes);
+        document.getElementById('biPecasMes').innerText = pecasVendidasMes + " un.";
+        
+        let ticketMedio = numVendasMes > 0 ? (fatMes / numVendasMes) : 0;
+        document.getElementById('biTicketMedio').innerText = formatarMoeda(ticketMedio);
 
         // GRÁFICO 1: LINHA
         if(graficoEvolucaoVendas) graficoEvolucaoVendas.destroy();
@@ -396,7 +431,10 @@ function renderizarDashboard() {
         graficoTopProdutos = new Chart(document.getElementById('graficoBarras'), {
             type: 'bar',
             data: {
-                labels: produtosOrdenados.map(p => p[0].substring(0, 15)),
+                labels: produtosOrdenados.map(p => {
+                    let nome = p[0];
+                    return nome.length > 35 ? nome.substring(0, 35) + '...' : nome; 
+                }),
                 datasets: [{ label: 'Unidades Vendidas', data: produtosOrdenados.map(p => p[1]), backgroundColor: '#ffa726', borderRadius: 4 }]
             },
             options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
