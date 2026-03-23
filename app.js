@@ -144,11 +144,30 @@ function renderizarVendas() {
 }
 
 function atualizarSelects() {
-    const sV = document.getElementById("produtoVenda"), sE = document.getElementById("produtoEntrada");
-    sV.innerHTML = sE.innerHTML = '<option value="">Selecione...</option>';
+    const sV = document.getElementById("produtoVenda");
+    const sE = document.getElementById("produtoEntrada");
+    if(!sV || !sE) return;
+
+    sV.innerHTML = '<option value="">Selecione um produto...</option>';
+    sE.innerHTML = '<option value="">Selecione um produto...</option>';
+    
     produtosGlobais.forEach(p => {
-        const txt = `${p.Produto} ${p.Modelo} - ${p.Cor} (${p.Tamanho})`;
-        sV.add(new Option(txt, p.id)); sE.add(new Option(txt, p.id));
+        const estoque = parseInt(p.Estoque) || 0;
+        
+        // --- LÓGICA DO PDV (CAIXA) ---
+        let textoCaixa = `${p.Produto} ${p.Modelo} - ${p.Cor} (${p.Tamanho}) | Estoque: ${estoque} un.`;
+        let optVenda = new Option(textoCaixa, p.id);
+        
+        // Se não tiver estoque, avisa e bloqueia o clique!
+        if (estoque === 0) {
+            optVenda.text = `🚫 ESGOTADO - ${p.Produto} ${p.Modelo} - ${p.Cor} (${p.Tamanho})`;
+            optVenda.disabled = true; // Bloqueia a seleção no caixa
+        }
+        sV.add(optVenda);
+
+        // --- LÓGICA DA ENTRADA DE ESTOQUE ---
+        let textoEntrada = `${p.Produto} ${p.Modelo} - ${p.Cor} (${p.Tamanho}) | Estoque Atual: ${estoque}`;
+        sE.add(new Option(textoEntrada, p.id));
     });
 }
 
@@ -459,7 +478,7 @@ function renderizarDashboard() {
                 datasets: [{ 
                     label: 'Unidades Vendidas', 
                     data: produtosOrdenados.map(p => p[1].qtd), 
-                    backgroundColor: coresDasBarras, // Aplica as cores inteligentes
+                    backgroundColor: coresDasBarras, 
                     borderRadius: 4 
                 }]
             },
