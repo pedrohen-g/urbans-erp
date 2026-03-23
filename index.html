@@ -28,12 +28,23 @@
         <div id="abaCaixa" class="aba-conteudo ativo">
             <section class="acoes-grid" style="max-width: 600px; margin: 0 auto;">
                 <div class="card" style="border-top: 4px solid var(--success);">
-                    <h2>Registrar Venda</h2>
-                    <div class="input-wrap"><label>Produto:</label><select id="produtoVenda" onchange="atualizarResumoVenda()"><option value="">Carregando...</option></select></div>
+                    <h2>Registrar Venda (Carrinho)</h2>
+                    
+                    <div class="input-wrap"><label>Produto:</label><select id="produtoVenda"></select></div>
+                    
+                    <div class="input-group-row" style="margin-bottom: 15px;">
+                        <div class="input-wrap" style="flex: 2;"><label>Quantidade:</label><input id="quantidadeVenda" type="number" min="1" value="1"></div>
+                        <button class="btn-add" onclick="adicionarAoCarrinho()" title="Adicionar ao Carrinho">+</button>
+                    </div>
+
+                    <div id="areaCarrinho" style="display: none;">
+                        <label style="font-size: 12px; font-weight: bold; color: var(--text-secondary); text-transform: uppercase;">Itens no Pedido:</label>
+                        <div id="listaCarrinho" class="carrinho-container"></div>
+                    </div>
+
                     <div class="input-wrap"><label>Cliente (Opcional):</label><input id="clienteVenda" type="text" placeholder="Nome do Cliente"></div>
-                    <div class="input-wrap"><label>Quantidade:</label><input id="quantidadeVenda" type="number" min="1" oninput="atualizarResumoVenda()"></div>
-                    <div class="input-wrap"><label>Desconto Total (R$):</label><input type="number" id="descontoVenda" oninput="atualizarResumoVenda()" step="0.01"></div>
-                    <div class="input-group-row">
+                    <div class="input-wrap"><label>Desconto Total do Pedido (R$):</label><input type="number" id="descontoVenda" oninput="atualizarResumoCarrinho()" step="0.01"></div>
+                    <div class="input-group-row" style="margin-bottom: 15px;">
                         <div class="input-wrap">
                             <label>Pagamento:</label>
                             <select id="metodoPagamento">
@@ -45,11 +56,12 @@
                         </div>
                         <div class="input-wrap">
                             <label>Taxa Máquina:</label>
-                            <div class="input-suffix-wrap"><input type="number" id="taxaVenda" oninput="atualizarResumoVenda()" step="0.01"><span class="suffix">%</span></div>
+                            <div class="input-suffix-wrap"><input type="number" id="taxaVenda" oninput="atualizarResumoCarrinho()" step="0.01"><span class="suffix">%</span></div>
                         </div>
                     </div>
+                    
                     <div id="resumoVendaDisplay" style="margin-bottom:15px; padding:10px; background:#252525; border:1px dashed #444; border-radius:5px; text-align:center; display:none;"></div>
-                    <button class="btn-success" style="font-size: 18px; padding: 15px;" onclick="registrarVenda()">Confirmar Venda</button>
+                    <button class="btn-success" style="font-size: 18px; padding: 15px;" onclick="finalizarVendaCarrinho()">Finalizar Pedido</button>
                 </div>
             </section>
         </div>
@@ -59,7 +71,7 @@
                 <div class="card">
                     <h2>Entrada de Estoque</h2>
                     <div class="input-wrap"><label>Produto:</label><select id="produtoEntrada"></select></div>
-                    <div class="input-group-row">
+                    <div class="input-group-row" style="margin-bottom: 15px;">
                         <div class="input-wrap"><label>Qtd Adquirida:</label><input id="quantidadeEntrada" type="number" min="1"></div>
                         <div class="input-wrap"><label>Custo Unit. (R$):</label><input id="custoEntrada" type="number" step="0.01"></div>
                     </div>
@@ -70,8 +82,8 @@
                     <h2>Novo Produto</h2>
                     <div class="input-wrap"><label>Nome do Produto:</label><input id="cadProduto" type="text" placeholder="Ex: Camisa Brasil"></div>
                     <div class="input-wrap"><label>Modelo:</label><input id="cadModelo" type="text"></div>
-                    <div class="input-group-row"><div class="input-wrap"><label>Cor:</label><input id="cadCor" type="text"></div><div class="input-wrap"><label>Tamanho:</label><input id="cadTamanho" type="text"></div></div>
-                    <div class="input-group-row"><div class="input-wrap"><label>Custo Padrão (R$):</label><input id="cadCusto" type="number" step="0.01"></div><div class="input-wrap"><label>Preço Venda (R$):</label><input id="cadPreco" type="number" step="0.01"></div></div>
+                    <div class="input-group-row" style="margin-bottom: 15px;"><div class="input-wrap"><label>Cor:</label><input id="cadCor" type="text"></div><div class="input-wrap"><label>Tamanho:</label><input id="cadTamanho" type="text"></div></div>
+                    <div class="input-group-row" style="margin-bottom: 15px;"><div class="input-wrap"><label>Custo Padrão (R$):</label><input id="cadCusto" type="number" step="0.01"></div><div class="input-wrap"><label>Preço Venda (R$):</label><input id="cadPreco" type="number" step="0.01"></div></div>
                     <div class="input-wrap"><label>Estoque Inicial:</label><input id="cadEstoque" type="number"></div>
                     <button class="btn-primary" onclick="cadastrarProduto()">Cadastrar Produto</button>
                 </div>
@@ -93,7 +105,7 @@
                 <div class="estoque-header"><h2>Histórico de Vendas</h2><button class="btn-secondary" onclick="carregarDados()">Atualizar Histórico</button></div>
                 <div class="table-container">
                     <table>
-                        <thead><tr><th>Data</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Pagamento</th><th>Faturamento</th><th>Lucro Líquido</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Cod. Pedido</th><th>Data</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Pagamento</th><th>Faturamento</th><th>Lucro Líquido</th><th>Ações</th></tr></thead>
                         <tbody id="historicoVendas"></tbody>
                     </table>
                 </div>
@@ -111,7 +123,7 @@
 
             <section class="acoes-grid">
                 <div class="card full-width">
-                    <h2>Top 5 Mais Vendidos (Nome e Cor Reais)</h2>
+                    <h2>Top 5 Mais Vendidos</h2>
                     <div class="chart-wrapper" style="height: 350px;"><canvas id="graficoBarras"></canvas></div>
                 </div>
                 <div class="card full-width">
@@ -132,11 +144,11 @@
             <input type="hidden" id="editID">
             <div class="input-wrap"><label>Nome do Produto:</label><input id="editProduto" type="text"></div>
             <div class="input-wrap"><label>Modelo:</label><input id="editModelo" type="text"></div>
-            <div class="input-group-row"><div class="input-wrap"><label>Cor:</label><input id="editCor" type="text"></div><div class="input-wrap"><label>Tamanho:</label><input id="editTamanho" type="text"></div></div>
-            <div class="input-group-row"><div class="input-wrap"><label>Custo Atual (R$):</label><input id="editCusto" type="number" step="0.01"></div><div class="input-wrap"><label>Preço Venda (R$):</label><input id="editPreco" type="number" step="0.01"></div></div>
+            <div class="input-group-row" style="margin-bottom:15px;"><div class="input-wrap"><label>Cor:</label><input id="editCor" type="text"></div><div class="input-wrap"><label>Tamanho:</label><input id="editTamanho" type="text"></div></div>
+            <div class="input-group-row" style="margin-bottom:15px;"><div class="input-wrap"><label>Custo Atual (R$):</label><input id="editCusto" type="number" step="0.01"></div><div class="input-wrap"><label>Preço Venda (R$):</label><input id="editPreco" type="number" step="0.01"></div></div>
             <div class="input-wrap"><label>Estoque Atual:</label><input id="editEstoque" type="number" min="0"></div>
             <div class="input-group-row" style="margin-top: 15px; gap: 10px;">
-                <button class="btn-success" onclick="salvarEdicao()">Salvar Alterações</button>
+                <button class="btn-success" onclick="salvarEdicao()">Salvar</button>
                 <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
             </div>
         </div>
@@ -145,11 +157,11 @@
     <div id="modalEdicaoVenda" class="modal">
         <div class="modal-content card">
             <h2>Editar Venda</h2>
-            <input type="hidden" id="editVendaID"><input type="hidden" id="editVendaProdutoID"><input type="hidden" id="editVendaQtdAntiga"><input type="hidden" id="editVendaPreco"><input type="hidden" id="editVendaCusto">
+            <input type="hidden" id="editVendaID"><input type="hidden" id="editVendaProdutoID"><input type="hidden" id="editVendaQtdAntiga"><input type="hidden" id="editVendaPreco"><input type="hidden" id="editVendaCusto"><input type="hidden" id="editVendaCodigo">
             <input id="editVendaProdutoNome" type="text" disabled style="background:#1a1a1a; margin-bottom:15px; font-weight:bold;">
-            <div class="input-group-row"><div class="input-wrap"><label>Data:</label><input id="editVendaData" type="date"></div><div class="input-wrap"><label>Cliente:</label><input id="editVendaCliente" type="text"></div></div>
-            <div class="input-group-row"><div class="input-wrap"><label>Quantidade:</label><input id="editVendaQuantidade" type="number"></div><div class="input-wrap"><label>Desconto Total:</label><input id="editVendaDesconto" type="number" step="0.01"></div></div>
-            <div class="input-group-row">
+            <div class="input-group-row" style="margin-bottom:15px;"><div class="input-wrap"><label>Data:</label><input id="editVendaData" type="date"></div><div class="input-wrap"><label>Cliente:</label><input id="editVendaCliente" type="text"></div></div>
+            <div class="input-group-row" style="margin-bottom:15px;"><div class="input-wrap"><label>Qtd:</label><input id="editVendaQuantidade" type="number"></div><div class="input-wrap"><label>Desconto Total:</label><input id="editVendaDesconto" type="number" step="0.01"></div></div>
+            <div class="input-group-row" style="margin-bottom:15px;">
                 <div class="input-wrap"><label>Pagamento:</label><select id="editVendaMetodo"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Débito">Débito</option><option value="Crédito">Crédito</option></select></div>
                 <div class="input-wrap"><label>Taxa %:</label><div class="input-suffix-wrap"><input id="editVendaTaxa" type="number" step="0.01"><span class="suffix">%</span></div></div>
             </div>
