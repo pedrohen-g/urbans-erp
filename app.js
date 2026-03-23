@@ -342,7 +342,7 @@ async function salvarEdicao() {
 }
 
 // ----------------------------------------------------
-// DASHBOARD BI (BUSINESS INTELLIGENCE)
+// DASHBOARD BI (BUSINESS INTELLIGENCE) - CORES INTELIGENTES
 // ----------------------------------------------------
 function renderizarDashboard() {
     try {
@@ -367,13 +367,15 @@ function renderizarDashboard() {
             const lR = limparNumero(v.Lucro_Venda);
             const qtd = parseInt(v.Quantidade) || 0;
             
-            // CRUZAMENTO DE DADOS: Pegando o nome completo do Produto para o Gráfico
+            // CRUZAMENTO DE DADOS: Pegando Nome + Cor do Produto
             let prodNome = "Outro";
+            let corDoProduto = ""; 
             if (v.Produtos && v.Produtos.length > 0) {
                 const pID = v.Produtos[0].id;
                 const produtoNoBanco = produtosGlobais.find(p => p.id === pID);
                 if (produtoNoBanco) {
                     prodNome = `${produtoNoBanco.Produto} ${produtoNoBanco.Modelo} - ${produtoNoBanco.Cor} (${produtoNoBanco.Tamanho})`;
+                    corDoProduto = produtoNoBanco.Cor ? produtoNoBanco.Cor.toLowerCase() : "";
                 } else {
                     prodNome = v.Produtos[0].value;
                 }
@@ -388,7 +390,7 @@ function renderizarDashboard() {
                 fatMes += fR; 
                 lucroMes += lR;
                 pecasVendidasMes += qtd;
-                numVendasMes++; // Conta quantas vendas (pedidos) foram feitas
+                numVendasMes++; 
                 
                 let dia = dataIso.split('-')[2];
                 if(dia) {
@@ -397,7 +399,12 @@ function renderizarDashboard() {
                 }
             }
 
-            qtdPorProduto[prodNome] = (qtdPorProduto[prodNome] || 0) + qtd;
+            // Agrupa Produto + Cor para o Gráfico Top 5
+            if(!qtdPorProduto[prodNome]) {
+                qtdPorProduto[prodNome] = { qtd: 0, cor: corDoProduto };
+            }
+            qtdPorProduto[prodNome].qtd += qtd;
+            
             fatPorPagamento[met] = (fatPorPagamento[met] || 0) + fR;
         });
 
@@ -424,18 +431,37 @@ function renderizarDashboard() {
             options: { responsive: true, maintainAspectRatio: false }
         });
 
-        // GRÁFICO 2: BARRAS
+        // GRÁFICO 2: BARRAS COM CORES DINÂMICAS
         if(graficoTopProdutos) graficoTopProdutos.destroy();
-        let produtosOrdenados = Object.entries(qtdPorProduto).sort((a, b) => b[1] - a[1]).slice(0, 5);
         
+        // Ordena pelos que mais venderam
+        let produtosOrdenados = Object.entries(qtdPorProduto).sort((a, b) => b[1].qtd - a[1].qtd).slice(0, 5);
+        
+        // Define a cor de cada barra baseado no nome da cor
+        let coresDasBarras = produtosOrdenados.map(p => {
+            let corText = p[1].cor;
+            if (corText.includes("amarel")) return "#ffd54f"; 
+            if (corText.includes("azul")) return "#64b5f6";   
+            if (corText.includes("pret")) return "#616161";   
+            if (corText.includes("branc")) return "#e0e0e0";  
+            if (corText.includes("verd")) return "#81c784";   
+            if (corText.includes("vermelh")) return "#e57373"; 
+            return "#ffa726"; // Laranja padrão Urbans
+        });
+
         graficoTopProdutos = new Chart(document.getElementById('graficoBarras'), {
             type: 'bar',
             data: {
                 labels: produtosOrdenados.map(p => {
                     let nome = p[0];
-                    return nome.length > 35 ? nome.substring(0, 35) + '...' : nome; 
+                    return nome.length > 50 ? nome.substring(0, 50) + '...' : nome; 
                 }),
-                datasets: [{ label: 'Unidades Vendidas', data: produtosOrdenados.map(p => p[1]), backgroundColor: '#ffa726', borderRadius: 4 }]
+                datasets: [{ 
+                    label: 'Unidades Vendidas', 
+                    data: produtosOrdenados.map(p => p[1].qtd), 
+                    backgroundColor: coresDasBarras, // Aplica as cores inteligentes
+                    borderRadius: 4 
+                }]
             },
             options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
         });

@@ -11,10 +11,14 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background-color: var(--bg-main); color: var(--text-primary); font-family: var(--font-main); line-height: 1.6; }
 
-/* HEADER E TABS */
+/* HEADER E LOGO */
 header { background-color: var(--bg-card); padding: 20px; text-align: center; border-bottom: 1px solid var(--border); }
-header h1 { color: #fff; font-size: 24px; text-transform: uppercase; letter-spacing: 2px; }
-header p { color: var(--text-secondary); font-size: 14px; margin-top: 5px; }
+.header-container { display: flex; align-items: center; justify-content: center; gap: 15px; }
+.logo-img { max-height: 60px; border-radius: 4px; }
+header h1 { color: #fff; font-size: 26px; text-transform: uppercase; letter-spacing: 2px; line-height: 1.2;}
+header p { color: var(--text-secondary); font-size: 14px; margin-top: 0px; }
+
+/* TABS */
 .tabs { display: flex; justify-content: center; margin: 20px auto; max-width: 900px; flex-wrap: wrap; gap: 10px;}
 .tab-btn { background: none; border: none; color: var(--text-secondary); padding: 10px 20px; cursor: pointer; font-size: 16px; font-weight: bold; border-bottom: 2px solid transparent; transition: all 0.3s; }
 .tab-btn:hover { color: #fff; }
@@ -40,14 +44,12 @@ input:focus, select:focus { outline: none; border-color: var(--primary); }
 
 /* DASHBOARD E TABELAS */
 .dashboard { display: flex; gap: 20px; justify-content: center; margin: 20px auto; max-width: 1200px; flex-wrap: wrap;}
-.dash-card { background-color: var(--bg-card); padding: 15px; border-radius: 8px; text-align: center; flex: 1; min-width: 250px; border: 1px solid var(--border); }
-.dash-card h3 { font-size: 14px; color: var(--text-secondary); text-transform: uppercase; }
-.dash-valor { font-size: 24px; font-weight: bold; margin-top: 5px; color: #fff; }
+.dash-card { background-color: var(--bg-card); padding: 15px; border-radius: 8px; text-align: center; flex: 1; min-width: 200px; border: 1px solid var(--border); }
+.dash-card h3 { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; }
+.dash-valor { font-size: 22px; font-weight: bold; margin-top: 5px; color: #fff; }
 
 .estoque-section { max-width: 1200px; margin: 20px auto; }
 .estoque-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap:10px;}
-.estoque-acoes { display: flex; gap: 10px; align-items: center; }
-
 .table-container { background-color: var(--bg-card); border-radius: 8px; border: 1px solid var(--border); overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 800px;}
 th, td { text-align: left; padding: 12px 15px; border-bottom: 1px solid var(--border); }
