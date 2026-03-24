@@ -40,11 +40,19 @@ function mostrarNotificacao(mensagem, tipo = 'sucesso') {
     setTimeout(() => { toast.classList.add('esconder'); setTimeout(() => toast.remove(), 300); }, 4000);
 }
 
-const limparNumero = (v) => parseFloat(v?.toString().replace(',', '.')) || 0;
+// NOVA FUNÇÃO BLINDADA PARA CENTAVOS
+const limparNumero = (v) => {
+    if (v === null || v === undefined || v === "") return 0;
+    if (typeof v === 'number') return v;
+    let str = v.toString().replace(/[R$\s]/g, '').replace(',', '.');
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
+};
+
 const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 // ----------------------------------------------------
-// CARREGAR DADOS (COM AUTORIZAÇÃO)
+// CARREGAR DADOS
 // ----------------------------------------------------
 async function carregarDados() {
     try {
@@ -235,11 +243,24 @@ function abrirModalEdicaoVenda(id) {
 function fecharModalVenda() { document.getElementById("modalEdicaoVenda").classList.remove("ativo"); }
 
 async function entradaEstoque() {
-    const id = document.getElementById("produtoEntrada").value, q = parseInt(document.getElementById("quantidadeEntrada").value), custo = limparNumero(document.getElementById("custoEntrada").value), p = produtosGlobais.find(x => x.id == id);
+    const id = document.getElementById("produtoEntrada").value;
+    const q = parseInt(document.getElementById("quantidadeEntrada").value);
+    const custo = limparNumero(document.getElementById("custoEntrada").value);
+    
     if (!id || !q || q <= 0 || custo <= 0) return mostrarNotificacao("Preencha quantidade e custo pago.", "aviso");
+    
     try {
-        const res = await fetch('/api/entrada-estoque', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': SENHA_ACESSO }, body: JSON.stringify({ produtoID: id, quantidade: q, custo: custo, novoEstoque: (parseInt(p.Estoque) || 0) + q }) });
-        if(res.ok) { mostrarNotificacao("Estoque atualizado e Histórico salvo!"); document.getElementById("quantidadeEntrada").value = ""; document.getElementById("custoEntrada").value = ""; carregarDados(); } 
+        const res = await fetch('/api/entrada-estoque', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Authorization': SENHA_ACESSO }, 
+            body: JSON.stringify({ produtoID: id, quantidade: q, custo: custo }) 
+        });
+        if(res.ok) { 
+            mostrarNotificacao("Estoque atualizado e Custo Médio calculado!"); 
+            document.getElementById("quantidadeEntrada").value = ""; 
+            document.getElementById("custoEntrada").value = ""; 
+            carregarDados(); 
+        } 
         else mostrarNotificacao("Erro do Servidor.", "erro");
     } catch(e) { mostrarNotificacao("Erro de conexão.", "erro"); }
 }
@@ -254,7 +275,7 @@ async function excluirVenda(id) {
 }
 
 async function cadastrarProduto() {
-    const p = { Produto: document.getElementById("cadProduto").value, Modelo: document.getElementById("cadModelo").value, Cor: document.getElementById("cadCor").value, Tamanho: document.getElementById("cadTamanho").value, Custo: parseFloat(document.getElementById("cadCusto").value), Preco_Venda: parseFloat(document.getElementById("cadPreco").value), Estoque: parseInt(document.getElementById("cadEstoque").value) || 0 };
+    const p = { Produto: document.getElementById("cadProduto").value, Modelo: document.getElementById("cadModelo").value, Cor: document.getElementById("cadCor").value, Tamanho: document.getElementById("cadTamanho").value, Custo: limparNumero(document.getElementById("cadCusto").value), Preco_Venda: limparNumero(document.getElementById("cadPreco").value), Estoque: parseInt(document.getElementById("cadEstoque").value) || 0 };
     try {
         const res = await fetch('/api/cadastrar-produto', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': SENHA_ACESSO }, body: JSON.stringify(p) });
         if(res.ok){ mostrarNotificacao("Cadastrado!"); carregarDados(); }
@@ -271,7 +292,7 @@ function abrirModalEdicao(id) {
 }
 function fecharModal() { document.getElementById("modalEdicao").classList.remove("ativo"); }
 async function salvarEdicao() {
-    const p = { id: document.getElementById("editID").value, Produto: document.getElementById("editProduto").value, Custo: parseFloat(document.getElementById("editCusto").value), Preco_Venda: parseFloat(document.getElementById("editPreco").value), Estoque: parseInt(document.getElementById("editEstoque").value), Modelo: document.getElementById("editModelo").value, Cor: document.getElementById("editCor").value, Tamanho: document.getElementById("editTamanho").value };
+    const p = { id: document.getElementById("editID").value, Produto: document.getElementById("editProduto").value, Custo: limparNumero(document.getElementById("editCusto").value), Preco_Venda: limparNumero(document.getElementById("editPreco").value), Estoque: parseInt(document.getElementById("editEstoque").value), Modelo: document.getElementById("editModelo").value, Cor: document.getElementById("editCor").value, Tamanho: document.getElementById("editTamanho").value };
     try { await fetch('/api/editar-produto', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': SENHA_ACESSO }, body: JSON.stringify(p) }); mostrarNotificacao("Salvo!"); fecharModal(); carregarDados(); } catch (e) { mostrarNotificacao("Erro", "erro"); }
 }
 
