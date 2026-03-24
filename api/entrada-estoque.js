@@ -4,7 +4,7 @@ export default async function handler(req, res) {
 
     const API_TOKEN = process.env.BASEROW_TOKEN;
     const TABLE_PRODUTOS = 884394;
-    const TABLE_ENTRADAS = "COLOQUE_AQUI_O_ID_DA_TABELA_ENTRADAS"; // <- AVISO: SUBSTITUA PELO ID REAL DA SUA TABELA DE ENTRADAS
+    const TABLE_ENTRADAS = 884417; 
 
     const { produtoID, quantidade, custo } = req.body;
 
