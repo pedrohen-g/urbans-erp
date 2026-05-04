@@ -292,6 +292,17 @@ async function salvarEdicao() {
     try { await fetch('/api/editar-produto', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': SENHA_ACESSO }, body: JSON.stringify(p) }); mostrarNotificacao("Salvo!"); fecharModal(); carregarDados(); } catch (e) { mostrarNotificacao("Erro", "erro"); }
 }
 
+function alternarFiltroData() {
+    const filtro = document.getElementById('filtroPeriodoDash').value;
+    const divDatas = document.getElementById('filtroDatasCustom');
+    if (filtro === 'personalizado') {
+        divDatas.style.display = 'flex';
+    } else {
+        divDatas.style.display = 'none';
+        renderizarDashboard(); 
+    }
+}
+
 function renderizarDashboard() {
     try {
         let capEstoque = produtosGlobais.reduce((acc, p) => acc + (limparNumero(p.Custo) * (parseInt(p.Estoque)||0)), 0);
@@ -302,6 +313,14 @@ function renderizarDashboard() {
         
         const filtro = document.getElementById('filtroPeriodoDash');
         const periodo = filtro ? filtro.value : 'mes'; 
+
+        let dInicio = null, dFim = null;
+        if (periodo === 'personalizado') {
+            const valIn = document.getElementById('dataInicioDash').value;
+            const valFim = document.getElementById('dataFimDash').value;
+            if (valIn) dInicio = new Date(valIn + 'T00:00:00');
+            if (valFim) dFim = new Date(valFim + 'T23:59:59');
+        }
 
         let fat = 0, lucro = 0, pecasVendidas = 0, codigosDePedido = new Set();
         let faturamentoPorDia = {}; let lucroPorDia = {}; let qtdPorProduto = {}; let fatPorPagamento = {};
@@ -326,13 +345,25 @@ function renderizarDashboard() {
                 entraNoCalculo = true; 
             } else if (periodo === 'mes' && dataIso.startsWith(mesAtual)) {
                 entraNoCalculo = true; 
+            } else if (periodo === 'personalizado' && dataIso) {
+                let dataVenda = new Date(dataIso + 'T12:00:00'); 
+                let okInicio = dInicio ? dataVenda >= dInicio : true;
+                let okFim = dFim ? dataVenda <= dFim : true;
+                if (okInicio && okFim) entraNoCalculo = true;
             }
 
             if (entraNoCalculo) {
                 fat += fR; lucro += lR; pecasVendidas += qtd;
                 if (v.Codigo_Pedido) codigosDePedido.add(v.Codigo_Pedido); else codigosDePedido.add(v.id); 
                 
-                let labelGrafico = periodo === 'mes' ? `Dia ${dataIso.split('-')[2]}` : dataIso.substring(0,7).split('-').reverse().join('/');
+                let labelGrafico;
+                if (periodo === 'mes') {
+                    labelGrafico = `Dia ${dataIso.split('-')[2]}`;
+                } else if (periodo === 'total') {
+                    labelGrafico = dataIso.substring(0,7).split('-').reverse().join('/'); 
+                } else {
+                    labelGrafico = dataIso.split('-').reverse().join('/'); 
+                }
                 
                 faturamentoPorDia[labelGrafico] = (faturamentoPorDia[labelGrafico] || 0) + fR; 
                 lucroPorDia[labelGrafico] = (lucroPorDia[labelGrafico] || 0) + lR;

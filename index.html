@@ -113,20 +113,29 @@
         </div>
 
         <div id="abaDashboard" class="aba-conteudo">
-            <section class="dashboard-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <section class="dashboard-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid var(--border); flex-wrap: wrap; gap: 15px;">
                 <h2 style="color: #fff; margin: 0; font-size: 18px;">Visão de Desempenho</h2>
-                <div style="display: flex; gap: 10px; align-items: center;">
+                
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <label style="font-size: 12px; font-weight: bold; color: var(--text-secondary); text-transform: uppercase;">Período:</label>
-                    <select id="filtroPeriodoDash" onchange="renderizarDashboard()" style="padding: 8px; background: #121212; color: #fff; border: 1px solid var(--border); border-radius: 4px; outline: none; cursor: pointer;">
-                        <option value="mes">📅 Apenas Mês Atual</option>
-                        <option value="total">🌎 Histórico Total (Todo o período)</option>
+                    <select id="filtroPeriodoDash" onchange="alternarFiltroData()" style="padding: 8px; background: #121212; color: #fff; border: 1px solid var(--border); border-radius: 4px; outline: none; cursor: pointer;">
+                        <option value="mes">Apenas Mês Atual</option>
+                        <option value="total">Histórico Total</option>
+                        <option value="personalizado">Período Personalizado</option>
                     </select>
+
+                    <div id="filtroDatasCustom" style="display: none; align-items: center; gap: 10px;">
+                        <input type="date" id="dataInicioDash" style="padding: 6px; width: auto; font-size: 13px;">
+                        <span style="color: var(--text-secondary); font-size: 12px;">até</span>
+                        <input type="date" id="dataFimDash" style="padding: 6px; width: auto; font-size: 13px;">
+                        <button class="btn-primary" onclick="renderizarDashboard()" style="padding: 8px 15px; width: auto; font-size: 13px;">Filtrar</button>
+                    </div>
                 </div>
             </section>
 
             <section class="dashboard">
-                <div class="dash-card" style="border-top: 3px solid var(--primary);"><h3>Faturamento Bruto</h3><p id="biFat" class="dash-valor lucro-verde">R$ 0,00</p></div>
-                <div class="dash-card" style="border-top: 3px solid var(--primary);"><h3>Lucro Líquido</h3><p id="biLucro" class="dash-valor">R$ 0,00</p></div>
+                <div class="dash-card" style="border-top: 3px solid var(--primary);"><h3>Faturamento Bruto</h3><p id="biFat" class="dash-valor">R$ 0,00</p></div>
+                <div class="dash-card" style="border-top: 3px solid var(--success);"><h3>Lucro Líquido</h3><p id="biLucro" class="dash-valor lucro-verde">R$ 0,00</p></div>
                 <div class="dash-card" style="border-top: 3px solid var(--primary);"><h3>Peças Vendidas</h3><p id="biPecas" class="dash-valor">0 un.</p></div>
                 <div class="dash-card" style="border-top: 3px solid var(--primary);"><h3>Ticket Médio</h3><p id="biTicketMedio" class="dash-valor">R$ 0,00</p></div>
                 <div class="dash-card" style="border-top: 3px solid var(--warning);"><h3>Capital em Estoque</h3><p id="biCapitalEstoque" class="dash-valor" style="color:var(--warning)">R$ 0,00</p></div>
