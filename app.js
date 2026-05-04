@@ -40,7 +40,6 @@ function mostrarNotificacao(mensagem, tipo = 'sucesso') {
     setTimeout(() => { toast.classList.add('esconder'); setTimeout(() => toast.remove(), 300); }, 4000);
 }
 
-// NOVA FUNÇÃO BLINDADA PARA CENTAVOS
 const limparNumero = (v) => {
     if (v === null || v === undefined || v === "") return 0;
     if (typeof v === 'number') return v;
@@ -51,9 +50,6 @@ const limparNumero = (v) => {
 
 const formatarMoeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// ----------------------------------------------------
-// CARREGAR DADOS
-// ----------------------------------------------------
 async function carregarDados() {
     try {
         const resposta = await fetch('/api/get-dados', { headers: { 'Authorization': SENHA_ACESSO } });
@@ -301,12 +297,19 @@ function renderizarDashboard() {
         let capEstoque = produtosGlobais.reduce((acc, p) => acc + (limparNumero(p.Custo) * (parseInt(p.Estoque)||0)), 0);
         document.getElementById('biCapitalEstoque').innerText = formatarMoeda(capEstoque);
         const hoje = new Date().toLocaleDateString('en-CA'); const mesAtual = hoje.substring(0, 7); 
+        
         let fatMes = 0, lucroMes = 0, pecasVendidasMes = 0, codigosDePedidoMes = new Set();
+        let fatTotalGeral = 0, lucroTotalGeral = 0; // NOVAS VARIÁVEIS DO HISTÓRICO TOTAL
+
         let faturamentoPorDia = {}; let lucroPorDia = {}; let qtdPorProduto = {}; let fatPorPagamento = {};
         Chart.defaults.color = '#aaaaaa'; Chart.defaults.borderColor = '#333333';
 
         vendasGlobais.forEach(v => {
-            let dataIso = v.Data?.split('T')[0] || ""; const fR = limparNumero(v.Faturamento); const lR = limparNumero(v.Lucro_Venda); const qtd = parseInt(v.Quantidade) || 0;
+            let dataIso = v.Data?.split('T')[0] || ""; 
+            const fR = limparNumero(v.Faturamento); 
+            const lR = limparNumero(v.Lucro_Venda); 
+            const qtd = parseInt(v.Quantidade) || 0;
+            
             let prodNome = "Outro"; let corDoProduto = ""; 
             if (v.Produtos && v.Produtos.length > 0) {
                 const pID = v.Produtos[0].id; const produtoNoBanco = produtosGlobais.find(p => p.id === pID);
@@ -314,17 +317,31 @@ function renderizarDashboard() {
             }
             let met = "Dinheiro"; if(v.Metodo_Pagamento) met = typeof v.Metodo_Pagamento === 'object' ? (v.Metodo_Pagamento.value || "Dinheiro") : v.Metodo_Pagamento;
 
+            // SOMA TUDO PARA O HISTÓRICO TOTAL (Independente do mês)
+            fatTotalGeral += fR;
+            lucroTotalGeral += lR;
+
+            // SOMA APENAS O MÊS ATUAL
             if (dataIso.startsWith(mesAtual)) {
                 fatMes += fR; lucroMes += lR; pecasVendidasMes += qtd;
                 if (v.Codigo_Pedido) codigosDePedidoMes.add(v.Codigo_Pedido); else codigosDePedidoMes.add(v.id); 
                 let dia = dataIso.split('-')[2]; if(dia) { faturamentoPorDia[dia] = (faturamentoPorDia[dia] || 0) + fR; lucroPorDia[dia] = (lucroPorDia[dia] || 0) + lR; }
             }
+            
             if(!qtdPorProduto[prodNome]) { qtdPorProduto[prodNome] = { qtd: 0, cor: corDoProduto }; }
             qtdPorProduto[prodNome].qtd += qtd; fatPorPagamento[met] = (fatPorPagamento[met] || 0) + fR;
         });
 
-        document.getElementById('biFatMes').innerText = formatarMoeda(fatMes); document.getElementById('biLucroMes').innerText = formatarMoeda(lucroMes); document.getElementById('biPecasMes').innerText = pecasVendidasMes + " un.";
-        let ticketMedio = codigosDePedidoMes.size > 0 ? (fatMes / codigosDePedidoMes.size) : 0; document.getElementById('biTicketMedio').innerText = formatarMoeda(ticketMedio);
+        // ATUALIZA OS CARDS COM OS DADOS CALCULADOS
+        document.getElementById('biFatTotal').innerText = formatarMoeda(fatTotalGeral);
+        document.getElementById('biLucroTotal').innerText = formatarMoeda(lucroTotalGeral);
+        
+        document.getElementById('biFatMes').innerText = formatarMoeda(fatMes); 
+        document.getElementById('biLucroMes').innerText = formatarMoeda(lucroMes); 
+        document.getElementById('biPecasMes').innerText = pecasVendidasMes + " un.";
+        
+        let ticketMedio = codigosDePedidoMes.size > 0 ? (fatMes / codigosDePedidoMes.size) : 0; 
+        document.getElementById('biTicketMedio').innerText = formatarMoeda(ticketMedio);
 
         if(graficoEvolucaoVendas) graficoEvolucaoVendas.destroy();
         const diasOrdenados = Object.keys(faturamentoPorDia).sort();
