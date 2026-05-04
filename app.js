@@ -296,12 +296,16 @@ function renderizarDashboard() {
     try {
         let capEstoque = produtosGlobais.reduce((acc, p) => acc + (limparNumero(p.Custo) * (parseInt(p.Estoque)||0)), 0);
         document.getElementById('biCapitalEstoque').innerText = formatarMoeda(capEstoque);
-        const hoje = new Date().toLocaleDateString('en-CA'); const mesAtual = hoje.substring(0, 7); 
         
-        let fatMes = 0, lucroMes = 0, pecasVendidasMes = 0, codigosDePedidoMes = new Set();
-        let fatTotalGeral = 0, lucroTotalGeral = 0; // NOVAS VARIÁVEIS DO HISTÓRICO TOTAL
+        const hoje = new Date().toLocaleDateString('en-CA'); 
+        const mesAtual = hoje.substring(0, 7); 
+        
+        const filtro = document.getElementById('filtroPeriodoDash');
+        const periodo = filtro ? filtro.value : 'mes'; 
 
+        let fat = 0, lucro = 0, pecasVendidas = 0, codigosDePedido = new Set();
         let faturamentoPorDia = {}; let lucroPorDia = {}; let qtdPorProduto = {}; let fatPorPagamento = {};
+        
         Chart.defaults.color = '#aaaaaa'; Chart.defaults.borderColor = '#333333';
 
         vendasGlobais.forEach(v => {
@@ -317,35 +321,37 @@ function renderizarDashboard() {
             }
             let met = "Dinheiro"; if(v.Metodo_Pagamento) met = typeof v.Metodo_Pagamento === 'object' ? (v.Metodo_Pagamento.value || "Dinheiro") : v.Metodo_Pagamento;
 
-            // SOMA TUDO PARA O HISTÓRICO TOTAL (Independente do mês)
-            fatTotalGeral += fR;
-            lucroTotalGeral += lR;
-
-            // SOMA APENAS O MÊS ATUAL
-            if (dataIso.startsWith(mesAtual)) {
-                fatMes += fR; lucroMes += lR; pecasVendidasMes += qtd;
-                if (v.Codigo_Pedido) codigosDePedidoMes.add(v.Codigo_Pedido); else codigosDePedidoMes.add(v.id); 
-                let dia = dataIso.split('-')[2]; if(dia) { faturamentoPorDia[dia] = (faturamentoPorDia[dia] || 0) + fR; lucroPorDia[dia] = (lucroPorDia[dia] || 0) + lR; }
+            let entraNoCalculo = false;
+            if (periodo === 'total') {
+                entraNoCalculo = true; 
+            } else if (periodo === 'mes' && dataIso.startsWith(mesAtual)) {
+                entraNoCalculo = true; 
             }
-            
-            if(!qtdPorProduto[prodNome]) { qtdPorProduto[prodNome] = { qtd: 0, cor: corDoProduto }; }
-            qtdPorProduto[prodNome].qtd += qtd; fatPorPagamento[met] = (fatPorPagamento[met] || 0) + fR;
+
+            if (entraNoCalculo) {
+                fat += fR; lucro += lR; pecasVendidas += qtd;
+                if (v.Codigo_Pedido) codigosDePedido.add(v.Codigo_Pedido); else codigosDePedido.add(v.id); 
+                
+                let labelGrafico = periodo === 'mes' ? `Dia ${dataIso.split('-')[2]}` : dataIso.substring(0,7).split('-').reverse().join('/');
+                
+                faturamentoPorDia[labelGrafico] = (faturamentoPorDia[labelGrafico] || 0) + fR; 
+                lucroPorDia[labelGrafico] = (lucroPorDia[labelGrafico] || 0) + lR;
+                
+                if(!qtdPorProduto[prodNome]) { qtdPorProduto[prodNome] = { qtd: 0, cor: corDoProduto }; }
+                qtdPorProduto[prodNome].qtd += qtd; fatPorPagamento[met] = (fatPorPagamento[met] || 0) + fR;
+            }
         });
 
-        // ATUALIZA OS CARDS COM OS DADOS CALCULADOS
-        document.getElementById('biFatTotal').innerText = formatarMoeda(fatTotalGeral);
-        document.getElementById('biLucroTotal').innerText = formatarMoeda(lucroTotalGeral);
+        document.getElementById('biFat').innerText = formatarMoeda(fat);
+        document.getElementById('biLucro').innerText = formatarMoeda(lucro);
+        document.getElementById('biPecas').innerText = pecasVendidas + " un.";
         
-        document.getElementById('biFatMes').innerText = formatarMoeda(fatMes); 
-        document.getElementById('biLucroMes').innerText = formatarMoeda(lucroMes); 
-        document.getElementById('biPecasMes').innerText = pecasVendidasMes + " un.";
-        
-        let ticketMedio = codigosDePedidoMes.size > 0 ? (fatMes / codigosDePedidoMes.size) : 0; 
+        let ticketMedio = codigosDePedido.size > 0 ? (fat / codigosDePedido.size) : 0; 
         document.getElementById('biTicketMedio').innerText = formatarMoeda(ticketMedio);
 
         if(graficoEvolucaoVendas) graficoEvolucaoVendas.destroy();
         const diasOrdenados = Object.keys(faturamentoPorDia).sort();
-        graficoEvolucaoVendas = new Chart(document.getElementById('graficoLinha'), { type: 'line', data: { labels: diasOrdenados.map(d => `Dia ${d}`), datasets: [ { label: 'Faturamento', data: diasOrdenados.map(d => faturamentoPorDia[d]), borderColor: '#5c6bc0', backgroundColor: 'rgba(92, 107, 192, 0.2)', fill: true, tension: 0.3 }, { label: 'Lucro', data: diasOrdenados.map(d => lucroPorDia[d]), borderColor: '#66bb6a', backgroundColor: 'transparent', tension: 0.3 } ] }, options: { responsive: true, maintainAspectRatio: false } });
+        graficoEvolucaoVendas = new Chart(document.getElementById('graficoLinha'), { type: 'line', data: { labels: diasOrdenados, datasets: [ { label: 'Faturamento', data: diasOrdenados.map(d => faturamentoPorDia[d]), borderColor: '#5c6bc0', backgroundColor: 'rgba(92, 107, 192, 0.2)', fill: true, tension: 0.3 }, { label: 'Lucro', data: diasOrdenados.map(d => lucroPorDia[d]), borderColor: '#66bb6a', backgroundColor: 'transparent', tension: 0.3 } ] }, options: { responsive: true, maintainAspectRatio: false } });
 
         if(graficoTopProdutos) graficoTopProdutos.destroy();
         let produtosOrdenados = Object.entries(qtdPorProduto).sort((a, b) => b[1].qtd - a[1].qtd).slice(0, 5);
