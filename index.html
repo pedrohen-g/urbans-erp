@@ -90,7 +90,31 @@
             </section>
 
             <section class="estoque-section">
-                <div class="estoque-header"><h2>Estoque Atual</h2><button class="btn-secondary" onclick="carregarDados()">Atualizar Lista</button></div>
+                <div class="estoque-header" style="flex-direction: column; align-items: stretch;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2>Estoque Atual</h2>
+                        <button class="btn-secondary" onclick="carregarDados()" style="width: auto;">Atualizar Lista</button>
+                    </div>
+                    <!-- MICRO-BI DO ESTOQUE (FILTROS) -->
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+                        <div class="input-wrap" style="flex: 2; margin-bottom: 0;">
+                            <label>Pesquisar (Nome, Cor, etc):</label>
+                            <input id="buscaEstoque" type="text" placeholder="Digite para buscar..." oninput="renderizarProdutos()">
+                        </div>
+                        <div class="input-wrap" style="flex: 1; margin-bottom: 0;">
+                            <label>Modelo:</label>
+                            <select id="filtroModelo" onchange="renderizarProdutos()"><option value="">Todos</option></select>
+                        </div>
+                        <div class="input-wrap" style="flex: 1; margin-bottom: 0;">
+                            <label>Cor:</label>
+                            <select id="filtroCor" onchange="renderizarProdutos()"><option value="">Todas</option></select>
+                        </div>
+                        <div class="input-wrap" style="flex: 1; margin-bottom: 0;">
+                            <label>Tamanho:</label>
+                            <select id="filtroTamanho" onchange="renderizarProdutos()"><option value="">Todos</option></select>
+                        </div>
+                    </div>
+                </div>
                 <div class="table-container">
                     <table>
                         <thead><tr><th>Produto</th><th>Modelo</th><th>Cor</th><th>Tam.</th><th>Custo Atual</th><th>Preço</th><th>Margem</th><th>Estoque</th><th>Status</th><th>Ações</th></tr></thead>

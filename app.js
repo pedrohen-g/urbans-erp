@@ -57,6 +57,7 @@ async function carregarDados() {
         const dados = await resposta.json();
         produtosGlobais = dados.produtos;
         vendasGlobais = dados.vendas.reverse(); 
+        atualizarFiltrosEstoque();
         renderizarProdutos();
         renderizarVendas();
         atualizarSelects(); 
@@ -64,29 +65,83 @@ async function carregarDados() {
     } catch (error) { mostrarNotificacao("Erro de conexão. Verifique a senha da API.", "erro"); }
 }
 
+// LÓGICA DO NOVO MICRO-BI DE ESTOQUE
+function atualizarFiltrosEstoque() {
+    const modelos = new Set();
+    const cores = new Set();
+    const tamanhos = new Set();
+
+    produtosGlobais.forEach(p => {
+        if (p.Modelo) modelos.add(p.Modelo);
+        if (p.Cor) cores.add(p.Cor);
+        if (p.Tamanho) tamanhos.add(p.Tamanho);
+    });
+
+    const preencherSelect = (id, labelBase, valores) => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const valorAtual = sel.value; 
+        sel.innerHTML = `<option value="">${labelBase}</option>`;
+        [...valores].sort().forEach(v => {
+            let opt = new Option(v, v);
+            if (v === valorAtual) opt.selected = true;
+            sel.add(opt);
+        });
+    };
+
+    preencherSelect("filtroModelo", "Todos", modelos);
+    preencherSelect("filtroCor", "Todas", cores);
+    preencherSelect("filtroTamanho", "Todos", tamanhos);
+}
+
 function renderizarProdutos() {
     const tabela = document.getElementById("produtos");
     if (!tabela) return;
     tabela.innerHTML = "";
+    
+    // Captura os valores dos filtros do Front-end
+    const termoBusca = (document.getElementById("buscaEstoque")?.value || "").toLowerCase();
+    const filtroModelo = document.getElementById("filtroModelo")?.value || "";
+    const filtroCor = document.getElementById("filtroCor")?.value || "";
+    const filtroTamanho = document.getElementById("filtroTamanho")?.value || "";
+
     let totalPecas = 0, capitalInvestido = 0, potencialFaturamento = 0;
 
-    produtosGlobais.forEach(produto => {
+    // Filtra a lista oficial antes de desenhar a tabela
+    const produtosFiltrados = produtosGlobais.filter(produto => {
+        const textoParaBusca = `${produto.Produto} ${produto.Modelo || ''} ${produto.Cor || ''} ${produto.Tamanho || ''}`.toLowerCase();
+        
+        if (termoBusca && !textoParaBusca.includes(termoBusca)) return false;
+        if (filtroModelo && produto.Modelo !== filtroModelo) return false;
+        if (filtroCor && produto.Cor !== filtroCor) return false;
+        if (filtroTamanho && produto.Tamanho !== filtroTamanho) return false;
+        
+        return true;
+    });
+
+    produtosFiltrados.forEach(produto => {
         const custo = limparNumero(produto.Custo);
         const preco = limparNumero(produto.Preco_Venda);
         const estoqueAtual = parseInt(produto.Estoque) || 0;
-        totalPecas += estoqueAtual; capitalInvestido += (custo * estoqueAtual); potencialFaturamento += (preco * estoqueAtual);
+        
+        // As somas do rodapé agora calculam apenas em cima do que foi filtrado
+        totalPecas += estoqueAtual; 
+        capitalInvestido += (custo * estoqueAtual); 
+        potencialFaturamento += (preco * estoqueAtual);
+        
         let margem = preco > 0 ? ((preco - custo) / preco) * 100 : 0;
         let statusHtml = estoqueAtual === 0 ? '<span class="badge badge-danger">🔴 Esgotado</span>' : (estoqueAtual < 3 ? '<span class="badge badge-warning">🟡 Acabando</span>' : '<span class="badge badge-success">🟢 Normal</span>');
 
         tabela.innerHTML += `<tr>
-            <td><strong>${produto.Produto}</strong></td><td>${produto.Modelo}</td><td>${produto.Cor}</td><td>${produto.Tamanho}</td>
+            <td><strong>${produto.Produto}</strong></td><td>${produto.Modelo || "-"}</td><td>${produto.Cor || "-"}</td><td>${produto.Tamanho || "-"}</td>
             <td>${formatarMoeda(custo)}</td><td>${formatarMoeda(preco)}</td>
             <td><span class="badge margem-badge">${margem.toFixed(1)}%</span></td>
             <td><strong>${estoqueAtual}</strong></td><td>${statusHtml}</td>
             <td><button class="btn-acao btn-edit" onclick="abrirModalEdicao(${produto.id})">Editar</button><button class="btn-acao btn-delete" onclick="excluirProduto(${produto.id})">❌</button></td>
         </tr>`;
     });
-    document.getElementById("resumoEstoque").innerHTML = `<tr><td colspan="4">RESUMO</td><td>${formatarMoeda(capitalInvestido)}</td><td>${formatarMoeda(potencialFaturamento)}</td><td>-</td><td>${totalPecas} un.</td><td colspan="2" class="lucro-verde">LUCRO PROJETADO: ${formatarMoeda(potencialFaturamento - capitalInvestido)}</td></tr>`;
+    
+    document.getElementById("resumoEstoque").innerHTML = `<tr><td colspan="4">RESUMO DA PESQUISA</td><td>${formatarMoeda(capitalInvestido)}</td><td>${formatarMoeda(potencialFaturamento)}</td><td>-</td><td>${totalPecas} un.</td><td colspan="2" class="lucro-verde">LUCRO PROJETADO: ${formatarMoeda(potencialFaturamento - capitalInvestido)}</td></tr>`;
 }
 
 function renderizarVendas() {
