@@ -4,6 +4,7 @@
 const SENHA_ACESSO = "urbans123";
 let produtosGlobais = [];
 let vendasGlobais = []; 
+let despesasGlobais = []; // NOVA VARIÁVEL
 let carrinhoVendas = []; 
 
 let graficoEvolucaoVendas = null;
@@ -27,6 +28,7 @@ function abrirAba(evento, idAba) {
     document.getElementById(idAba).classList.add("ativo");
     evento.currentTarget.classList.add("ativo");
     if(idAba === 'abaDashboard') { renderizarDashboard(); }
+    if(idAba === 'abaFinanceiro') { renderizarFinanceiro(); } // Atualiza o caixa ao abrir a aba
 }
 
 function mostrarNotificacao(mensagem, tipo = 'sucesso') {
@@ -55,21 +57,121 @@ async function carregarDados() {
         const resposta = await fetch('/api/get-dados', { headers: { 'Authorization': SENHA_ACESSO } });
         if (!resposta.ok) throw new Error("Acesso Negado pela API");
         const dados = await resposta.json();
-        produtosGlobais = dados.produtos;
-        vendasGlobais = dados.vendas.reverse(); 
+        
+        produtosGlobais = dados.produtos || [];
+        vendasGlobais = (dados.vendas || []).reverse(); 
+        
+        // Garante que não quebre se a API não retornar as despesas ainda
+        despesasGlobais = dados.despesas ? dados.despesas.reverse() : []; 
+        
         atualizarFiltrosEstoque();
         renderizarProdutos();
         renderizarVendas();
         atualizarSelects(); 
+        renderizarFinanceiro();
         if(document.getElementById('abaDashboard').classList.contains('ativo')) renderizarDashboard();
     } catch (error) { mostrarNotificacao("Erro de conexão. Verifique a senha da API.", "erro"); }
 }
 
-// LÓGICA DO NOVO MICRO-BI DE ESTOQUE
+// ----------------------------------------------------
+// CAIXA VIRTUAL (FINANCEIRO) - NOVO MÓDULO
+// ----------------------------------------------------
+function renderizarFinanceiro() {
+    const tabela = document.getElementById("listaDespesas");
+    const catList = document.getElementById("catList");
+    if (!tabela) return;
+    tabela.innerHTML = "";
+    
+    let totalEntradasLiquidas = 0;
+    let totalSaidas = 0;
+    const categoriasUnicas = new Set();
+
+    // 1. Calcula o dinheiro real que pingou na conta (Vendas - Taxas da Máquina)
+    vendasGlobais.forEach(v => {
+        const faturamentoBruto = limparNumero(v.Faturamento);
+        const taxa = limparNumero(v.Taxa_Maquininha);
+        totalEntradasLiquidas += (faturamentoBruto - taxa);
+    });
+
+    // 2. Calcula as saídas e desenha o Extrato
+    despesasGlobais.forEach(d => {
+        const valor = limparNumero(d.Valor);
+        totalSaidas += valor;
+        if(d.Categoria) categoriasUnicas.add(d.Categoria);
+
+        let dataIso = d.Data?.split('T')[0] || "";
+        
+        tabela.innerHTML += `<tr>
+            <td>${dataIso.split('-').reverse().join('/')}</td>
+            <td><strong>${d.Descricao || "-"}</strong></td>
+            <td><span class="badge" style="background:#333; color:#fff;">${d.Categoria || "-"}</span></td>
+            <td style="color: var(--danger); font-weight: bold;">- ${formatarMoeda(valor)}</td>
+            <td><button class="btn-acao btn-delete" onclick="excluirDespesa(${d.id})">❌</button></td>
+        </tr>`;
+    });
+
+    // 3. Preenche as categorias no Datalist para autocomplete
+    if(catList) {
+        catList.innerHTML = "";
+        categoriasUnicas.forEach(cat => {
+            catList.innerHTML += `<option value="${cat}">`;
+        });
+    }
+
+    // 4. Calcula o Saldo Real
+    const saldoFinal = totalEntradasLiquidas - totalSaidas;
+
+    document.getElementById("finEntradas").innerText = formatarMoeda(totalEntradasLiquidas);
+    document.getElementById("finSaidas").innerText = formatarMoeda(totalSaidas);
+    document.getElementById("finSaldo").innerText = formatarMoeda(saldoFinal);
+    
+    const elSaldo = document.getElementById("finSaldo");
+    if (saldoFinal >= 0) { elSaldo.style.color = "#64b5f6"; } 
+    else { elSaldo.style.color = "var(--danger)"; }
+}
+
+async function cadastrarDespesa() {
+    const data = document.getElementById("despData").value;
+    const valor = limparNumero(document.getElementById("despValor").value);
+    const descricao = document.getElementById("despDescricao").value;
+    const categoria = document.getElementById("despCategoria").value;
+
+    if (!data || valor <= 0 || !descricao) return mostrarNotificacao("Preencha data, descrição e um valor maior que zero.", "aviso");
+
+    const btn = document.querySelector('#abaFinanceiro .btn-success');
+    btn.innerText = "Registrando..."; btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/cadastrar-despesa', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Authorization': SENHA_ACESSO }, 
+            body: JSON.stringify({ Data: data, Valor: valor, Descricao: descricao, Categoria: categoria }) 
+        });
+        if(res.ok) { 
+            mostrarNotificacao("Despesa registrada no Caixa!"); 
+            document.getElementById("despValor").value = "";
+            document.getElementById("despDescricao").value = "";
+            document.getElementById("despCategoria").value = "";
+            carregarDados(); 
+        } else mostrarNotificacao("Erro. A API de despesas foi configurada?", "erro");
+    } catch(e) { mostrarNotificacao("Erro de conexão", "erro"); } 
+    finally { btn.innerText = "Registrar Saída"; btn.disabled = false; }
+}
+
+async function excluirDespesa(id) {
+    if (!confirm("Tem certeza que deseja apagar este registro do Livro Caixa?")) return;
+    try { 
+        const res = await fetch(`/api/excluir-despesa?id=${id}`, { method: 'DELETE', headers: { 'Authorization': SENHA_ACESSO } }); 
+        if(res.ok) { mostrarNotificacao("Lançamento apagado!"); carregarDados(); } 
+        else mostrarNotificacao("Erro ao apagar lançamento.", "erro");
+    } catch (e) { mostrarNotificacao("Erro", "erro"); }
+}
+
+// ----------------------------------------------------
+// RESTANTE DO CÓDIGO (ESTOQUE, VENDAS, BI)
+// ----------------------------------------------------
 function atualizarFiltrosEstoque() {
-    const modelos = new Set();
-    const cores = new Set();
-    const tamanhos = new Set();
+    const modelos = new Set(); const cores = new Set(); const tamanhos = new Set();
 
     produtosGlobais.forEach(p => {
         if (p.Modelo) modelos.add(p.Modelo);
@@ -99,7 +201,6 @@ function renderizarProdutos() {
     if (!tabela) return;
     tabela.innerHTML = "";
     
-    // Captura os valores dos filtros do Front-end
     const termoBusca = (document.getElementById("buscaEstoque")?.value || "").toLowerCase();
     const filtroModelo = document.getElementById("filtroModelo")?.value || "";
     const filtroCor = document.getElementById("filtroCor")?.value || "";
@@ -107,15 +208,12 @@ function renderizarProdutos() {
 
     let totalPecas = 0, capitalInvestido = 0, potencialFaturamento = 0;
 
-    // Filtra a lista oficial antes de desenhar a tabela
     const produtosFiltrados = produtosGlobais.filter(produto => {
         const textoParaBusca = `${produto.Produto} ${produto.Modelo || ''} ${produto.Cor || ''} ${produto.Tamanho || ''}`.toLowerCase();
-        
         if (termoBusca && !textoParaBusca.includes(termoBusca)) return false;
         if (filtroModelo && produto.Modelo !== filtroModelo) return false;
         if (filtroCor && produto.Cor !== filtroCor) return false;
         if (filtroTamanho && produto.Tamanho !== filtroTamanho) return false;
-        
         return true;
     });
 
@@ -124,7 +222,6 @@ function renderizarProdutos() {
         const preco = limparNumero(produto.Preco_Venda);
         const estoqueAtual = parseInt(produto.Estoque) || 0;
         
-        // As somas do rodapé agora calculam apenas em cima do que foi filtrado
         totalPecas += estoqueAtual; 
         capitalInvestido += (custo * estoqueAtual); 
         potencialFaturamento += (preco * estoqueAtual);
@@ -244,7 +341,7 @@ async function finalizarVendaCarrinho() {
     let faturamentoBrutoTotal = 0; carrinhoVendas.forEach(i => faturamentoBrutoTotal += (i.preco * i.qtd));
     if (descTotal > faturamentoBrutoTotal) return mostrarNotificacao("Desconto maior que o total da compra!", "erro");
 
-    document.querySelector('.btn-success').innerText = "Processando..."; document.querySelector('.btn-success').disabled = true;
+    document.querySelector('#abaCaixa .btn-success').innerText = "Processando..."; document.querySelector('#abaCaixa .btn-success').disabled = true;
     const codigoPedidoUnico = "PED-" + Math.random().toString(36).substring(2, 6).toUpperCase();
 
     const payloadItens = carrinhoVendas.map(item => {
@@ -267,7 +364,7 @@ async function finalizarVendaCarrinho() {
             carrinhoVendas = []; document.getElementById("descontoVenda").value = ""; document.getElementById("taxaVenda").value = ""; document.getElementById("clienteVenda").value = ""; renderizarCarrinho(); await carregarDados(); 
         } else mostrarNotificacao("Erro do Servidor ou Acesso Negado.", "erro");
     } catch (e) { mostrarNotificacao("Erro ao salvar pedido.", "erro"); } 
-    finally { document.querySelector('.btn-success').innerText = "Finalizar Pedido"; document.querySelector('.btn-success').disabled = false; }
+    finally { document.querySelector('#abaCaixa .btn-success').innerText = "Finalizar Pedido"; document.querySelector('#abaCaixa .btn-success').disabled = false; }
 }
 
 async function salvarEdicaoVenda() {
