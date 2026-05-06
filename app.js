@@ -4,21 +4,14 @@
 const SENHA_ACESSO = "urbans123";
 let produtosGlobais = [];
 let vendasGlobais = []; 
-let despesasGlobais = []; // NOVA VARIÁVEL
+let despesasGlobais = []; 
 let carrinhoVendas = []; 
 
 let graficoEvolucaoVendas = null;
 let graficoTopProdutos = null;
 let graficoPagamentos = null;
 
-function verificarAcesso() {
-    const senhaDigitada = prompt("Digite a senha de acesso ao Urbans ERP:");
-    if (senhaDigitada !== SENHA_ACESSO) {
-        document.body.innerHTML = `<div style="background:#121212; color:white; height:100vh; display:flex; align-items:center; justify-content:center; font-family:sans-serif;"><h1>🔒 Acesso Bloqueado.</h1></div>`;
-        throw new Error("Acesso negado");
-    }
-}
-verificarAcesso();
+// Sem prompt de senha!
 
 function abrirAba(evento, idAba) {
     let conteudos = document.getElementsByClassName("aba-conteudo");
@@ -28,7 +21,7 @@ function abrirAba(evento, idAba) {
     document.getElementById(idAba).classList.add("ativo");
     evento.currentTarget.classList.add("ativo");
     if(idAba === 'abaDashboard') { renderizarDashboard(); }
-    if(idAba === 'abaFinanceiro') { renderizarFinanceiro(); } // Atualiza o caixa ao abrir a aba
+    if(idAba === 'abaFinanceiro') { renderizarFinanceiro(); } 
 }
 
 function mostrarNotificacao(mensagem, tipo = 'sucesso') {
@@ -60,8 +53,6 @@ async function carregarDados() {
         
         produtosGlobais = dados.produtos || [];
         vendasGlobais = (dados.vendas || []).reverse(); 
-        
-        // Garante que não quebre se a API não retornar as despesas ainda
         despesasGlobais = dados.despesas ? dados.despesas.reverse() : []; 
         
         atualizarFiltrosEstoque();
@@ -70,11 +61,11 @@ async function carregarDados() {
         atualizarSelects(); 
         renderizarFinanceiro();
         if(document.getElementById('abaDashboard').classList.contains('ativo')) renderizarDashboard();
-    } catch (error) { mostrarNotificacao("Erro de conexão. Verifique a senha da API.", "erro"); }
+    } catch (error) { mostrarNotificacao("Erro de conexão. Verifique a API.", "erro"); }
 }
 
 // ----------------------------------------------------
-// CAIXA VIRTUAL (FINANCEIRO) - NOVO MÓDULO
+// CAIXA VIRTUAL (FINANCEIRO) 
 // ----------------------------------------------------
 function renderizarFinanceiro() {
     const tabela = document.getElementById("listaDespesas");
@@ -86,14 +77,12 @@ function renderizarFinanceiro() {
     let totalSaidas = 0;
     const categoriasUnicas = new Set();
 
-    // 1. Calcula o dinheiro real que pingou na conta (Vendas - Taxas da Máquina)
     vendasGlobais.forEach(v => {
         const faturamentoBruto = limparNumero(v.Faturamento);
         const taxa = limparNumero(v.Taxa_Maquininha);
         totalEntradasLiquidas += (faturamentoBruto - taxa);
     });
 
-    // 2. Calcula as saídas e desenha o Extrato
     despesasGlobais.forEach(d => {
         const valor = limparNumero(d.Valor);
         totalSaidas += valor;
@@ -110,7 +99,6 @@ function renderizarFinanceiro() {
         </tr>`;
     });
 
-    // 3. Preenche as categorias no Datalist para autocomplete
     if(catList) {
         catList.innerHTML = "";
         categoriasUnicas.forEach(cat => {
@@ -118,7 +106,6 @@ function renderizarFinanceiro() {
         });
     }
 
-    // 4. Calcula o Saldo Real
     const saldoFinal = totalEntradasLiquidas - totalSaidas;
 
     document.getElementById("finEntradas").innerText = formatarMoeda(totalEntradasLiquidas);
@@ -153,7 +140,7 @@ async function cadastrarDespesa() {
             document.getElementById("despDescricao").value = "";
             document.getElementById("despCategoria").value = "";
             carregarDados(); 
-        } else mostrarNotificacao("Erro. A API de despesas foi configurada?", "erro");
+        } else mostrarNotificacao("Erro ao conectar com a API de despesas.", "erro");
     } catch(e) { mostrarNotificacao("Erro de conexão", "erro"); } 
     finally { btn.innerText = "Registrar Saída"; btn.disabled = false; }
 }
@@ -168,7 +155,7 @@ async function excluirDespesa(id) {
 }
 
 // ----------------------------------------------------
-// RESTANTE DO CÓDIGO (ESTOQUE, VENDAS, BI)
+// RESTANTE DO CÓDIGO (ESTOQUE, VENDAS E CARRINHO)
 // ----------------------------------------------------
 function atualizarFiltrosEstoque() {
     const modelos = new Set(); const cores = new Set(); const tamanhos = new Set();
@@ -262,10 +249,14 @@ function renderizarVendas() {
             else nomeProduto = venda.Produtos[0].value;
         }
 
+        const faturamentoBruto = limparNumero(venda.Faturamento);
+        const taxa = limparNumero(venda.Taxa_Maquininha);
+        const fatReal = faturamentoBruto - taxa;
+
         tabela.innerHTML += `<tr>
             <td style="font-size: 11px; color: var(--primary);">${cod}</td><td>${dataIso.split('-').reverse().join('/')}</td>
             <td><strong>${venda.cliente || "-"}</strong></td><td>${nomeProduto}</td>
-            <td>${qtd}</td><td>${metodoTxt}</td><td>${formatarMoeda(limparNumero(venda.Faturamento))}</td>
+            <td>${qtd}</td><td>${metodoTxt}</td><td>${formatarMoeda(fatReal)}</td>
             <td class="lucro-verde">${formatarMoeda(lucroVal)}</td>
             <td><button class="btn-acao btn-edit" onclick="abrirModalEdicaoVenda(${venda.id})">Editar</button><button class="btn-acao btn-delete" onclick="excluirVenda(${venda.id})">Estornar</button></td>
         </tr>`;
@@ -315,56 +306,128 @@ function renderizarCarrinho() {
     atualizarResumoCarrinho();
 }
 
+// LOGICA DO PAGAMENTO MISTO E CÁLCULO DE TAXAS
 function atualizarResumoCarrinho() {
     const display = document.getElementById("resumoVendaDisplay");
     if (carrinhoVendas.length === 0) { display.style.display = "none"; return; }
 
-    const descTotal = limparNumero(document.getElementById("descontoVenda").value), tP = limparNumero(document.getElementById("taxaVenda").value);
-    let faturamentoBrutoTotal = 0, custoTotalCarrinho = 0;
+    const descTotal = limparNumero(document.getElementById("descontoVenda").value);
     
-    carrinhoVendas.forEach(item => { faturamentoBrutoTotal += (item.preco * item.qtd); custoTotalCarrinho += (item.custo * item.qtd); });
+    let faturamentoBrutoTotal = 0;
+    let custoTotalCarrinho = 0;
+    carrinhoVendas.forEach(item => { 
+        faturamentoBrutoTotal += (item.preco * item.qtd); 
+        custoTotalCarrinho += (item.custo * item.qtd); 
+    });
 
     const faturamentoLiquido = faturamentoBrutoTotal - descTotal;
-    const taxaReais = faturamentoLiquido * (tP / 100);
+
+    // Lógica do Pagamento Dividido
+    let v2 = limparNumero(document.getElementById("valorPagamento2").value);
+    if (v2 > faturamentoLiquido) {
+        v2 = faturamentoLiquido; // Não deixa o pag 2 ser maior que o total
+        document.getElementById("valorPagamento2").value = v2.toFixed(2);
+    }
+    
+    const v1 = faturamentoLiquido - v2;
+
+    const tP1 = limparNumero(document.getElementById("taxaVenda").value);
+    const tP2 = limparNumero(document.getElementById("taxaVenda2").value);
+
+    const taxaReais = (v1 * (tP1 / 100)) + (v2 * (tP2 / 100));
     const lucroReal = faturamentoLiquido - taxaReais - custoTotalCarrinho;
 
     display.style.display = "block";
-    if (faturamentoLiquido < 0) display.innerHTML = `<span style="color:var(--danger)">⚠️ Desconto maior que o total!</span>`;
-    else display.innerHTML = `<span>Fat. Final: ${formatarMoeda(faturamentoLiquido)} | Taxa Total: -${formatarMoeda(taxaReais)}<br>Lucro do Pedido: <strong class="lucro-verde">${formatarMoeda(lucroReal)}</strong></span>`;
+    
+    if (faturamentoLiquido < 0) {
+        display.innerHTML = `<span style="color:var(--danger)">⚠️ Desconto maior que o total!</span>`;
+    } else {
+        let textoMisto = v2 > 0 ? ` (Dinheiro: ${formatarMoeda(v1)} | Opcional: ${formatarMoeda(v2)})` : "";
+        display.innerHTML = `<span>Fat. Final: ${formatarMoeda(faturamentoLiquido)}${textoMisto} <br> Taxa Total: -${formatarMoeda(taxaReais)} | Lucro do Pedido: <strong class="lucro-verde">${formatarMoeda(lucroReal)}</strong></span>`;
+    }
 }
 
 async function finalizarVendaCarrinho() {
     if (carrinhoVendas.length === 0) return mostrarNotificacao("O carrinho está vazio!", "aviso");
-    const clienteNome = document.getElementById("clienteVenda").value, descTotal = limparNumero(document.getElementById("descontoVenda").value);
-    const tP = limparNumero(document.getElementById("taxaVenda").value), metodo = document.getElementById("metodoPagamento").value;
+    const clienteNome = document.getElementById("clienteVenda").value;
+    const descTotal = limparNumero(document.getElementById("descontoVenda").value);
     
-    let faturamentoBrutoTotal = 0; carrinhoVendas.forEach(i => faturamentoBrutoTotal += (i.preco * i.qtd));
+    let faturamentoBrutoTotal = 0; 
+    carrinhoVendas.forEach(i => faturamentoBrutoTotal += (i.preco * i.qtd));
     if (descTotal > faturamentoBrutoTotal) return mostrarNotificacao("Desconto maior que o total da compra!", "erro");
 
-    document.querySelector('#abaCaixa .btn-success').innerText = "Processando..."; document.querySelector('#abaCaixa .btn-success').disabled = true;
+    const faturamentoLiquido = faturamentoBrutoTotal - descTotal;
+
+    // Resgate das variáveis do pagamento dividido
+    let v2 = limparNumero(document.getElementById("valorPagamento2").value);
+    if (v2 > faturamentoLiquido) v2 = faturamentoLiquido;
+    const v1 = faturamentoLiquido - v2;
+    
+    const tP1 = limparNumero(document.getElementById("taxaVenda").value);
+    const tP2 = limparNumero(document.getElementById("taxaVenda2").value);
+    
+    const taxaReaisTotal = (v1 * (tP1 / 100)) + (v2 * (tP2 / 100));
+    
+    // Calcula o percentual efetivo médio de taxa para ratear nos itens
+    const taxaEfetivaMedia = faturamentoLiquido > 0 ? (taxaReaisTotal / faturamentoLiquido) : 0;
+
+    const m1 = document.getElementById("metodoPagamento").value;
+    const m2 = document.getElementById("metodoPagamento2").value;
+    const metodoFinal = (v2 > 0 && m2) ? `Misto (${m1} / ${m2})` : m1;
+
+    document.querySelector('#abaCaixa .btn-success').innerText = "Processando..."; 
+    document.querySelector('#abaCaixa .btn-success').disabled = true;
     const codigoPedidoUnico = "PED-" + Math.random().toString(36).substring(2, 6).toUpperCase();
 
     const payloadItens = carrinhoVendas.map(item => {
         const itemFatBruto = item.preco * item.qtd;
-        const pesoNoPedido = itemFatBruto / faturamentoBrutoTotal;
+        const pesoNoPedido = faturamentoBrutoTotal > 0 ? (itemFatBruto / faturamentoBrutoTotal) : 0;
         const descontoDoItem = Number((descTotal * pesoNoPedido).toFixed(2));
         const fatRealItem = Number((itemFatBruto - descontoDoItem).toFixed(2));
-        const taxaDoItem = Number((fatRealItem * (tP / 100)).toFixed(2));
+        
+        // Aplica a taxa média no item individual
+        const taxaDoItem = Number((fatRealItem * taxaEfetivaMedia).toFixed(2));
+        
         const custoDoItem = Number((item.custo * item.qtd).toFixed(2));
         const lucroDoItem = Number((fatRealItem - taxaDoItem - custoDoItem).toFixed(2));
         const prodOriginal = produtosGlobais.find(x => x.id == item.id);
 
-        return { produtoID: item.id, cliente: clienteNome, quantidade: item.qtd, novoEstoque: parseInt(prodOriginal.Estoque) - item.qtd, metodoPagamento: metodo, codigoPedido: codigoPedidoUnico, financeiro: { preco: item.preco, custo: item.custo, desconto: descontoDoItem, taxa_maquininha: taxaDoItem, faturamento: fatRealItem, lucro: lucroDoItem } };
+        return { 
+            produtoID: item.id, 
+            cliente: clienteNome, 
+            quantidade: item.qtd, 
+            novoEstoque: parseInt(prodOriginal.Estoque) - item.qtd, 
+            metodoPagamento: metodoFinal, 
+            codigoPedido: codigoPedidoUnico, 
+            financeiro: { 
+                preco: item.preco, 
+                custo: item.custo, 
+                desconto: descontoDoItem, 
+                taxa_maquininha: taxaDoItem, 
+                faturamento: fatRealItem, 
+                lucro: lucroDoItem 
+            } 
+        };
     });
 
     try {
         const res = await fetch('/api/registrar-venda', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': SENHA_ACESSO }, body: JSON.stringify({ itens: payloadItens }) });
         if (res.ok) { 
-            mostrarNotificacao(`Pedido ${codigoPedidoUnico} registrado!`); 
-            carrinhoVendas = []; document.getElementById("descontoVenda").value = ""; document.getElementById("taxaVenda").value = ""; document.getElementById("clienteVenda").value = ""; renderizarCarrinho(); await carregarDados(); 
+            mostrarNotificacao(`Pedido ${codigoPedidoUnico} registrado com sucesso!`); 
+            carrinhoVendas = []; 
+            document.getElementById("descontoVenda").value = ""; 
+            document.getElementById("taxaVenda").value = ""; 
+            document.getElementById("taxaVenda2").value = ""; 
+            document.getElementById("valorPagamento2").value = ""; 
+            document.getElementById("clienteVenda").value = ""; 
+            renderizarCarrinho(); 
+            await carregarDados(); 
         } else mostrarNotificacao("Erro do Servidor ou Acesso Negado.", "erro");
     } catch (e) { mostrarNotificacao("Erro ao salvar pedido.", "erro"); } 
-    finally { document.querySelector('#abaCaixa .btn-success').innerText = "Finalizar Pedido"; document.querySelector('#abaCaixa .btn-success').disabled = false; }
+    finally { 
+        document.querySelector('#abaCaixa .btn-success').innerText = "Finalizar Pedido"; 
+        document.querySelector('#abaCaixa .btn-success').disabled = false; 
+    }
 }
 
 async function salvarEdicaoVenda() {
@@ -481,7 +544,10 @@ function renderizarDashboard() {
 
         vendasGlobais.forEach(v => {
             let dataIso = v.Data?.split('T')[0] || ""; 
-            const fR = limparNumero(v.Faturamento); 
+            
+            const faturamentoBruto = limparNumero(v.Faturamento);
+            const taxa = limparNumero(v.Taxa_Maquininha);
+            const fR = faturamentoBruto - taxa; 
             const lR = limparNumero(v.Lucro_Venda); 
             const qtd = parseInt(v.Quantidade) || 0;
             

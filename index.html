@@ -22,8 +22,8 @@
             <button class="tab-btn ativo" onclick="abrirAba(event, 'abaCaixa')">🛒 Caixa (PDV)</button>
             <button class="tab-btn" onclick="abrirAba(event, 'abaEstoque')">📦 Estoque</button>
             <button class="tab-btn" onclick="abrirAba(event, 'abaHistorico')">📜 Histórico Vendas</button>
-            <button class="tab-btn" onclick="abrirAba(event, 'abaFinanceiro')">💸 Financeiro</button>
             <button class="tab-btn" onclick="abrirAba(event, 'abaDashboard')">📊 Dashboard BI</button>
+            <button class="tab-btn" onclick="abrirAba(event, 'abaFinanceiro')">💸 Financeiro</button>
         </div>
 
         <div id="abaCaixa" class="aba-conteudo ativo">
@@ -45,19 +45,33 @@
 
                     <div class="input-wrap"><label>Cliente (Opcional):</label><input id="clienteVenda" type="text" placeholder="Nome do Cliente"></div>
                     <div class="input-wrap"><label>Desconto Total do Pedido (R$):</label><input type="number" id="descontoVenda" oninput="atualizarResumoCarrinho()" step="0.01"></div>
-                    <div class="input-group-row" style="margin-bottom: 15px;">
-                        <div class="input-wrap">
-                            <label>Pagamento:</label>
-                            <select id="metodoPagamento">
-                                <option value="Pix">Pix</option>
-                                <option value="Dinheiro">Dinheiro</option>
-                                <option value="Débito">Débito</option>
-                                <option value="Crédito">Crédito</option>
-                            </select>
+                    
+                    <div style="background: #1a1a1a; padding: 15px; border-radius: 5px; border: 1px solid var(--border); margin-bottom: 15px;">
+                        <label style="font-size: 11px; color: var(--success); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 8px;">1ª Forma de Pagamento (Principal):</label>
+                        <div class="input-group-row" style="margin-bottom: 15px;">
+                            <div class="input-wrap">
+                                <select id="metodoPagamento" onchange="atualizarResumoCarrinho()">
+                                    <option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Débito">Débito</option><option value="Crédito">Crédito</option>
+                                </select>
+                            </div>
+                            <div class="input-wrap">
+                                <div class="input-suffix-wrap"><input type="number" id="taxaVenda" oninput="atualizarResumoCarrinho()" step="0.01" placeholder="Taxa"><span class="suffix">%</span></div>
+                            </div>
                         </div>
-                        <div class="input-wrap">
-                            <label>Taxa Máquina:</label>
-                            <div class="input-suffix-wrap"><input type="number" id="taxaVenda" oninput="atualizarResumoCarrinho()" step="0.01"><span class="suffix">%</span></div>
+
+                        <label style="font-size: 11px; color: var(--warning); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 8px;">2ª Forma (Opcional - Pagamento Dividido):</label>
+                        <div class="input-group-row" style="margin-bottom: 0;">
+                            <div class="input-wrap">
+                                <select id="metodoPagamento2" onchange="atualizarResumoCarrinho()">
+                                    <option value="">Nenhuma</option><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Débito">Débito</option><option value="Crédito">Crédito</option>
+                                </select>
+                            </div>
+                            <div class="input-wrap">
+                                <input type="number" id="valorPagamento2" oninput="atualizarResumoCarrinho()" step="0.01" placeholder="R$ Valor Exato">
+                            </div>
+                            <div class="input-wrap">
+                                <div class="input-suffix-wrap"><input type="number" id="taxaVenda2" oninput="atualizarResumoCarrinho()" step="0.01" placeholder="Taxa"><span class="suffix">%</span></div>
+                            </div>
                         </div>
                     </div>
                     
@@ -129,60 +143,9 @@
                 <div class="estoque-header"><h2>Histórico de Vendas</h2><button class="btn-secondary" onclick="carregarDados()">Atualizar Histórico</button></div>
                 <div class="table-container">
                     <table>
-                        <thead><tr><th>Cod. Pedido</th><th>Data</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Pagamento</th><th>Faturamento</th><th>Lucro Líquido</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Cod. Pedido</th><th>Data</th><th>Cliente</th><th>Produto</th><th>Qtd</th><th>Pagamento</th><th>Valor Recebido</th><th>Lucro Líquido</th><th>Ações</th></tr></thead>
                         <tbody id="historicoVendas"></tbody>
                     </table>
-                </div>
-            </section>
-        </div>
-
-        <!-- NOVA ABA: FINANCEIRO (CAIXA VIRTUAL) -->
-        <div id="abaFinanceiro" class="aba-conteudo">
-            <section class="dashboard-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
-                <div>
-                    <h2 style="color: #fff; margin: 0; font-size: 18px;">Caixa da Loja (Conta Bancária)</h2>
-                    <p style="color: var(--text-secondary); font-size: 12px; margin: 0;">Visão de Regime de Caixa (Entradas Reais vs Saídas Reais)</p>
-                </div>
-                <button class="btn-secondary" onclick="carregarDados()" style="width: auto;">Atualizar Caixa</button>
-            </section>
-
-            <section class="dashboard">
-                <div class="dash-card" style="border-top: 3px solid #64b5f6; flex: 1.5;">
-                    <h3>Saldo Atual (Banco)</h3>
-                    <p id="finSaldo" class="dash-valor" style="color: #64b5f6; font-size: 28px;">R$ 0,00</p>
-                </div>
-                <div class="dash-card" style="border-top: 3px solid var(--success);">
-                    <h3>Entradas (Vendas - Taxas)</h3>
-                    <p id="finEntradas" class="dash-valor lucro-verde">R$ 0,00</p>
-                </div>
-                <div class="dash-card" style="border-top: 3px solid var(--danger);">
-                    <h3>Saídas (Despesas)</h3>
-                    <p id="finSaidas" class="dash-valor" style="color: var(--danger);">R$ 0,00</p>
-                </div>
-            </section>
-
-            <section class="acoes-grid">
-                <div class="card">
-                    <h2 style="border-bottom-color: var(--danger);">Lançar Despesa</h2>
-                    <div class="input-group-row" style="margin-bottom: 15px;">
-                        <div class="input-wrap"><label>Data:</label><input id="despData" type="date"></div>
-                        <div class="input-wrap"><label>Valor (R$):</label><input id="despValor" type="number" step="0.01" min="0.01"></div>
-                    </div>
-                    <div class="input-wrap"><label>Descrição do Gasto:</label><input id="despDescricao" type="text" placeholder="Ex: Pacote 3 Thiago"></div>
-                    <div class="input-wrap"><label>Categoria:</label><input id="despCategoria" type="text" placeholder="Ex: Frete, Embalagem, Retirada..." list="catList">
-                        <datalist id="catList"></datalist>
-                    </div>
-                    <button class="btn-success" onclick="cadastrarDespesa()" style="background-color: var(--danger); margin-top: 10px;">Registrar Saída</button>
-                </div>
-
-                <div class="card" style="flex: 2; grid-column: span 2;">
-                    <h2>Livro Caixa (Extrato de Despesas)</h2>
-                    <div class="table-container" style="max-height: 350px; overflow-y: auto;">
-                        <table>
-                            <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Ações</th></tr></thead>
-                            <tbody id="listaDespesas"></tbody>
-                        </table>
-                    </div>
                 </div>
             </section>
         </div>
@@ -212,7 +175,7 @@
             </section>
 
             <section class="dashboard">
-                <div class="dash-card" style="border-top: 3px solid var(--primary);"><h3>Faturamento Bruto</h3><p id="biFat" class="dash-valor">R$ 0,00</p></div>
+                <div class="dash-card" style="border-top: 3px solid var(--primary);"><h3>Receita (Pós-Taxas)</h3><p id="biFat" class="dash-valor">R$ 0,00</p></div>
                 <div class="dash-card" style="border-top: 3px solid var(--success);"><h3>Lucro Líquido Vendas</h3><p id="biLucro" class="dash-valor lucro-verde">R$ 0,00</p></div>
                 <div class="dash-card" style="border-top: 3px solid var(--primary);"><h3>Peças Vendidas</h3><p id="biPecas" class="dash-valor">0 un.</p></div>
                 <div class="dash-card" style="border-top: 3px solid var(--primary);"><h3>Ticket Médio</h3><p id="biTicketMedio" class="dash-valor">R$ 0,00</p></div>
@@ -231,6 +194,58 @@
                 <div class="card full-width">
                     <h2>Métodos de Pagamento</h2>
                     <div class="chart-wrapper"><canvas id="graficoPizza"></canvas></div>
+                </div>
+            </section>
+        </div>
+
+        <div id="abaFinanceiro" class="aba-conteudo">
+            <section class="dashboard-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+                <div>
+                    <h2 style="color: #fff; margin: 0; font-size: 18px;">Caixa da Loja (Conta Bancária)</h2>
+                    <p style="color: var(--text-secondary); font-size: 12px; margin: 0;">Visão de Regime de Caixa (Entradas Reais vs Saídas Reais)</p>
+                </div>
+                <button class="btn-secondary" onclick="carregarDados()" style="width: auto;">Atualizar Caixa</button>
+            </section>
+
+            <section class="dashboard">
+                <div class="dash-card" style="border-top: 3px solid #64b5f6; flex: 1.5;">
+                    <h3>Saldo Atual (Banco)</h3>
+                    <p id="finSaldo" class="dash-valor" style="color: #64b5f6; font-size: 28px;">R$ 0,00</p>
+                </div>
+                <div class="dash-card" style="border-top: 3px solid var(--success);">
+                    <h3>Entradas (Vendas)</h3>
+                    <p id="finEntradas" class="dash-valor lucro-verde">R$ 0,00</p>
+                </div>
+                <div class="dash-card" style="border-top: 3px solid var(--danger);">
+                    <h3>Saídas (Despesas)</h3>
+                    <p id="finSaidas" class="dash-valor" style="color: var(--danger);">R$ 0,00</p>
+                </div>
+            </section>
+
+            <section class="acoes-grid" style="margin-bottom: 20px;">
+                <div class="card full-width">
+                    <h2 style="border-bottom-color: var(--danger);">Lançar Despesa</h2>
+                    <div class="input-group-row" style="margin-bottom: 15px;">
+                        <div class="input-wrap"><label>Data:</label><input id="despData" type="date"></div>
+                        <div class="input-wrap"><label>Valor (R$):</label><input id="despValor" type="number" step="0.01" min="0.01"></div>
+                        <div class="input-wrap"><label>Categoria:</label><input id="despCategoria" type="text" placeholder="Ex: Frete, Embalagem..." list="catList">
+                            <datalist id="catList"></datalist>
+                        </div>
+                    </div>
+                    <div class="input-wrap"><label>Descrição do Gasto:</label><input id="despDescricao" type="text" placeholder="Ex: Pacote 3 Thiago"></div>
+                    <button class="btn-success" onclick="cadastrarDespesa()" style="background-color: var(--danger); margin-top: 10px;">Registrar Saída</button>
+                </div>
+            </section>
+
+            <section class="estoque-section">
+                <div class="estoque-header">
+                    <h2>Livro Caixa (Extrato de Despesas)</h2>
+                </div>
+                <div class="table-container" style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
+                    <table style="width: 100%;">
+                        <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Ações</th></tr></thead>
+                        <tbody id="listaDespesas"></tbody>
+                    </table>
                 </div>
             </section>
         </div>
